@@ -435,26 +435,24 @@ function sortearTimes() {
     else if (cur < 0) { cur = 0; dir = 1; }
   });
 
-  // 3. Garante max 6 por time: excedentes vao pro time com menos jogadores
-  for (let i = 0; i < numTimes; i++) {
+  // 3. Garante max 6 por time: excedentes vao SEMPRE para o ULTIMO grupo
+  const idxUltimo = numTimes - 1;
+  for (let i = 0; i < idxUltimo; i++) {
     while (grupos[i].length > 6) {
-      const menorIdx = grupos.reduce((mi, g, gi) => g.length < grupos[mi].length ? gi : mi, 0);
-      grupos[menorIdx].push(grupos[i].pop());
+      grupos[idxUltimo].push(grupos[i].pop());
     }
   }
 
-  // 4. Equilibra o time incompleto (se houver)
+  // 4. Equilibra o ultimo time se for incompleto
   const mediaGeral = presentes.reduce((s, p) => s + p.nivel, 0) / presentes.length;
-  const idxIncompleto = grupos.reduce((mi, g, gi) => g.length < grupos[mi].length ? gi : mi, 0);
-  if (grupos[idxIncompleto].length < 6) {
-    const grupoResto = grupos[idxIncompleto];
+  if (grupos[idxUltimo].length < 6) {
+    const grupoResto = grupos[idxUltimo];
     for (let tentativa = 0; tentativa < 40; tentativa++) {
       const diff = mediaTime(grupoResto) - mediaGeral;
       if (Math.abs(diff) <= 0.4) break;
       let melhorTroca = null, melhorMelhoria = 0;
       for (let r = 0; r < grupoResto.length; r++) {
-        for (let t = 0; t < numTimes; t++) {
-          if (t === idxIncompleto) continue;
+        for (let t = 0; t < idxUltimo; t++) {
           for (let j = 0; j < grupos[t].length; j++) {
             const pr = grupoResto[r], pt = grupos[t][j];
             if (pr.nivel === pt.nivel) continue;
@@ -481,11 +479,11 @@ function renderTimes(grupos) {
     { classe: 'vermelho', cor: 'var(--red)' },
   ];
 
-  // Identifica o time incompleto (menos jogadores), se houver
+  // Time incompleto e sempre o ultimo
   const minSize = Math.min(...grupos.map(g => g.length));
   const maxSize = Math.max(...grupos.map(g => g.length));
   const temIncompleto = minSize < maxSize;
-  const idxIncompleto = temIncompleto ? grupos.reduce((mi, g, gi) => g.length < grupos[mi].length ? gi : mi, 0) : -1;
+  const idxIncompleto = temIncompleto ? grupos.length - 1 : -1;
 
   let html = '<div class="sort-container">';
   grupos.forEach((time, idx) => {
