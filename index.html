@@ -408,32 +408,93 @@ function updateSortInfo() {
 }
 
 // ─── SORTEAR ──────────────────────────────────────────────────────────────
+function mediaTime(time) {
+  return time.length ? time.reduce((s, p) => s + p.nivel, 0) / time.length : 0;
+}
+
 function sortearTimes() {
   const presentes = players.filter(p => p.presente);
   if (presentes.length < 6) { toast('Marque pelo menos 6 presentes!'); return; }
 
-  // Embaralha mantendo equilíbrio de nível
-  const sorted = [...presentes].sort((a, b) => {
-    if (b.nivel !== a.nivel) return b.nivel - a.nivel;
-    return Math.random() - 0.5;
-  });
-
   const numTimesCompletos = Math.floor(presentes.length / 6);
   const resto = presentes.length % 6;
 
-  // Distribui em times de 6 usando snake draft para equilibrar
-  const times = Array.from({length: numTimesCompletos}, () => []);
+  // ── 1. Embaralha dentro de cada nível para aleatoriedade
+  const porNivel = {1:[], 2:[], 3:[], 4:[], 5:[]};
+  presentes.forEach(p => porNivel[p.nivel].push(p));
+  Object.values(porNivel).forEach(arr => arr.sort(() => Math.random() - 0.5));
+
+  // ── 2. Monta a lista total de grupos: times completos + (resto se houver)
+  const totalGrupos = numTimesCompletos + (resto > 0 ? 1 : 0);
+  const grupos = Array.from({length: totalGrupos}, () => []);
+
+  // ── 3. Snake draft por nível (5→1) distribuindo para TODOS os grupos
+  //       Os grupos de índice 0..numTimesCompletos-1 são os times de 6
+  //       O grupo de índice numTimesCompletos (se existir) é o restante
+  const todosOrdenados = [];
+  for (let n = 5; n >= 1; n--) {
+    todosOrdenados.push(...porNivel[n]);
+  }
+
   let dir = 1, cur = 0;
-  const jogadoresParaTimes = sorted.slice(0, numTimesCompletos * 6);
-  jogadoresParaTimes.forEach(p => {
-    times[cur].push(p);
+  todosOrdenados.forEach(p => {
+    grupos[cur].push(p);
     cur += dir;
-    if (cur >= numTimesCompletos) { cur = numTimesCompletos - 1; dir = -1; }
+    if (cur >= totalGrupos) { cur = totalGrupos - 1; dir = -1; }
     else if (cur < 0) { cur = 0; dir = 1; }
   });
 
-  // Restante vira um time separado (mesmo com menos de 6)
-  const timeResto = resto > 0 ? sorted.slice(numTimesCompletos * 6) : [];
+  // ── 4. Garante que os times completos tenham EXATAMENTE 6 jogadores
+  //       Se algum time ficou com mais de 6 (snake pode desequilibrar a contagem),
+  //       move os excedentes para o grupo restante.
+  if (resto > 0) {
+    for (let i = 0; i < numTimesCompletos; i++) {
+      while (grupos[i].length > 6) {
+        grupos[numTimesCompletos].push(grupos[i].pop());
+      }
+    }
+  }
+
+  // ── 5. Pós-ajuste: se o restante ficou com nível muito desequilibrado,
+  //       faz trocas para aproximar a média do restante da média geral
+  if (resto > 0) {
+    const mediaGeral = presentes.reduce((s, p) => s + p.nivel, 0) / presentes.length;
+    const grupoResto = grupos[numTimesCompletos];
+
+    // Tenta no máximo 30 trocas para equilibrar
+    for (let tentativa = 0; tentativa < 30; tentativa++) {
+      const mediaResto = mediaTime(grupoResto);
+      const diff = mediaResto - mediaGeral;
+      if (Math.abs(diff) <= 0.4) break; // já está equilibrado
+
+      // Procura troca benéfica: um jogador do restante e um de qualquer time
+      let melhorTroca = null, melhorMelhoria = 0;
+      for (let r = 0; r < grupoResto.length; r++) {
+        for (let t = 0; t < numTimesCompletos; t++) {
+          for (let j = 0; j < grupos[t].length; j++) {
+            const pr = grupoResto[r], pt = grupos[t][j];
+            if (pr.nivel === pt.nivel) continue;
+            // Simula a troca
+            const novaMediaResto = (grupoResto.reduce((s,p,i) => s + (i===r ? pt.nivel : p.nivel), 0)) / grupoResto.length;
+            const melhoria = Math.abs(diff) - Math.abs(novaMediaResto - mediaGeral);
+            if (melhoria > melhorMelhoria) {
+              melhorMelhoria = melhoria;
+              melhorTroca = { r, t, j };
+            }
+          }
+        }
+      }
+      if (!melhorTroca || melhorMelhoria < 0.05) break;
+      // Executa a melhor troca encontrada
+      const { r, t, j } = melhorTroca;
+      const tmp = grupoResto[r];
+      grupoResto[r] = grupos[t][j];
+      grupos[t][j] = tmp;
+    }
+  }
+
+  const times = grupos.slice(0, numTimesCompletos);
+  const timeResto = resto > 0 ? grupos[numTimesCompletos] : [];
 
   renderTimes(times, timeResto);
 }
