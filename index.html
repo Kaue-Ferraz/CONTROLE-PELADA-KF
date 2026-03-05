@@ -480,14 +480,16 @@ function renderTimes(grupos, temIncompleto = false) {
     { classe: 'vermelho', cor: 'var(--red)' },
   ];
 
-  // Time incompleto e SEMPRE o ultimo
-  const idxIncompleto = temIncompleto ? grupos.length - 1 : -1;
+  // Reordena: times completos primeiro, incompleto por ultimo
+  const ordenados = temIncompleto
+    ? [...grupos.filter(g => g.length === 6), ...grupos.filter(g => g.length < 6)]
+    : grupos;
 
   let html = '<div class="sort-container">';
-  grupos.forEach((time, idx) => {
+  ordenados.forEach((time, idx) => {
+    const eIncompleto = temIncompleto && time.length < 6;
     const cfg = cores[idx % cores.length];
     const avg = time.length ? (time.reduce((s, p) => s + p.nivel, 0) / time.length).toFixed(1) : '-';
-    const eIncompleto = idx === idxIncompleto;
     const corCard = eIncompleto ? 'border-color:var(--gold);background:linear-gradient(135deg,#2a1a00,#0a0a0a)' : '';
     const corNome = eIncompleto ? 'color:var(--gold)' : `color:${cfg.cor}`;
     const classeCard = eIncompleto ? '' : cfg.classe;
