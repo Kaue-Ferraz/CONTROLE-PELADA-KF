@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0d3b1e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pelada KF">
+<title>Controle de Pelada KF ⚽</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #1db954;
+    --green-dark: #0d3b1e;
+    --green-mid: #145228;
+    --green-light: #d4f7e0;
+    --gold: #f4c430;
+    --blue: #3b82f6;
+    --blue-light: #dbeafe;
+    --red: #ef4444;
+    --red-light: #fee2e2;
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface2: #1e1e1e;
+    --border: #2a2a2a;
+    --text: #f0f0f0;
+    --text-muted: #888;
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+  .header {
+    background: linear-gradient(135deg, var(--green-dark) 0%, #0a2e12 100%);
+    padding: 18px 20px 14px; text-align: center;
+    border-bottom: 2px solid var(--green);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem; letter-spacing: 3px; color: var(--green); line-height: 1; }
+  .header-sub { font-size: 0.68rem; color: var(--text-muted); letter-spacing: 1px; margin-top: 2px; }
+  .save-indicator { font-size: 0.65rem; margin-top: 4px; height: 14px; transition: all .3s; }
+  .save-indicator.saving { color: var(--gold); }
+  .save-indicator.saved { color: var(--green); }
+  .save-indicator.error { color: var(--red); }
+
+  .tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 80px; z-index: 99; }
+  .tab { flex: 1; padding: 11px 4px; text-align: center; font-size: 0.65rem; font-weight: 700; color: var(--text-muted); cursor: pointer; border-bottom: 3px solid transparent; transition: all .2s; letter-spacing: .5px; text-transform: uppercase; }
+  .tab.active { color: var(--green); border-bottom-color: var(--green); }
+  .tab-icon { font-size: 1.1rem; display: block; margin-bottom: 2px; }
+
+  .page { display: none; padding: 16px; padding-bottom: 40px; }
+  .page.active { display: block; }
+
+  .card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 16px; margin-bottom: 12px; }
+  .card-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: 2px; color: var(--green); margin-bottom: 12px; }
+
+  input[type=text], input[type=number], select {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text); font-family: 'Nunito', sans-serif;
+    font-size: 0.95rem; padding: 10px 14px; outline: none; transition: border-color .2s; -webkit-appearance: none;
+  }
+  input:focus, select:focus { border-color: var(--green); }
+
+  .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px; border-radius: var(--radius-sm); border: none; font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: 2px; cursor: pointer; transition: all .15s; }
+  .btn:active { transform: scale(.97); }
+  .btn-green { background: var(--green); color: #000; }
+  .btn-gold { background: var(--gold); color: #000; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-muted); font-size: 0.85rem; padding: 8px; font-family: 'Nunito'; font-weight: 700; letter-spacing: 0; }
+  .btn-sm { padding: 7px 12px; font-size: 0.8rem; width: auto; font-family: 'Nunito'; font-weight: 700; letter-spacing: 0; }
+
+  .section-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 6px; }
+
+  .nivel-selector { display: flex; gap: 6px; margin-bottom: 4px; }
+  .nivel-btn { flex: 1; padding: 8px 4px; border-radius: 8px; border: 2px solid var(--border); background: var(--surface2); color: var(--text-muted); font-family: 'Bebas Neue', sans-serif; font-size: 1rem; cursor: pointer; text-align: center; transition: all .15s; }
+  .nivel-btn.sel-1 { border-color: #555; background: #2a2a2a; color: #ccc; }
+  .nivel-btn.sel-2 { border-color: #5a8a50; background: #1a2e14; color: #7dc96e; }
+  .nivel-btn.sel-3 { border-color: #1db954; background: #0d3b1e; color: #1db954; }
+  .nivel-btn.sel-4 { border-color: var(--blue); background: #0d1f3c; color: #60a5fa; }
+  .nivel-btn.sel-5 { border-color: var(--red); background: #2e0a0a; color: #f87171; }
+  .nivel-hint { font-size: 0.65rem; text-align: center; color: var(--text-muted); }
+
+  .player-list { display: flex; flex-direction: column; gap: 8px; }
+  .player-item { display: flex; align-items: center; gap: 10px; background: var(--surface2); border-radius: var(--radius-sm); padding: 10px 12px; border: 1px solid var(--border); animation: slideIn .25s ease; }
+  @keyframes slideIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+  .player-name { flex: 1; font-weight: 700; font-size: 0.95rem; }
+  .stars { color: var(--gold); font-size: 0.8rem; letter-spacing: -1px; }
+  .nivel-badge { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 0.85rem; flex-shrink: 0; }
+  .n1 { background: #3f3f3f; color: #aaa; }
+  .n2 { background: #2d4a1e; color: #7dc96e; }
+  .n3 { background: #1a4a2e; color: #3ed96e; }
+  .n4 { background: #1a3a6b; color: #60a5fa; }
+  .n5 { background: #4a1a1a; color: #f87171; }
+  .del-btn { background: none; border: none; color: #555; cursor: pointer; font-size: 1rem; padding: 4px; line-height: 1; transition: color .15s; }
+  .del-btn:active { color: var(--red); }
+
+  .presence-count { text-align: center; background: var(--surface2); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 12px; border: 1px solid var(--border); }
+  .count-num { font-family: 'Bebas Neue', sans-serif; font-size: 2.5rem; color: var(--green); line-height: 1; }
+  .count-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+
+  .presence-item { display: flex; align-items: center; gap: 10px; background: var(--surface2); border-radius: var(--radius-sm); padding: 12px; border: 2px solid var(--border); cursor: pointer; transition: all .15s; margin-bottom: 8px; user-select: none; }
+  .presence-item.present { border-color: var(--green); background: #0d2e14; }
+  .check-circle { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #444; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; transition: all .15s; flex-shrink: 0; }
+  .presence-item.present .check-circle { background: var(--green); border-color: var(--green); color: #000; }
+
+  .sort-container { display: flex; flex-direction: column; gap: 14px; }
+  .time-card { border-radius: var(--radius); padding: 14px; border: 2px solid; }
+  .time-card.verde { border-color: var(--green); background: linear-gradient(135deg, #0a2e14, #0a0a0a); }
+  .time-card.azul { border-color: var(--blue); background: linear-gradient(135deg, #0d1f3c, #0a0a0a); }
+  .time-card.vermelho { border-color: var(--red); background: linear-gradient(135deg, #2e0a0a, #0a0a0a); }
+  .time-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .time-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem; letter-spacing: 2px; }
+  .time-card.verde .time-name { color: var(--green); }
+  .time-card.azul .time-name { color: var(--blue); }
+  .time-card.vermelho .time-name { color: var(--red); }
+  .time-avg { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); background: var(--surface2); padding: 3px 8px; border-radius: 20px; }
+  .time-player { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,0.04); margin-bottom: 6px; animation: popIn .3s ease; }
+  @keyframes popIn { 0% { opacity:0; transform:scale(0.85); } 70% { transform:scale(1.04); } 100% { opacity:1; transform:scale(1); } }
+  .time-player-name { flex: 1; font-weight: 700; font-size: 0.9rem; }
+  .time-player-num { font-size: 0.7rem; font-weight: 900; background: rgba(255,255,255,0.08); width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+  .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+  .empty-text { font-size: 0.9rem; line-height: 1.6; }
+
+  /* Loading overlay */
+  .loading-overlay { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999; transition: opacity .4s; }
+  .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+  .loading-ball { font-size: 3rem; animation: bounce 0.8s infinite alternate; }
+  @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-20px); } }
+  .loading-text { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 3px; color: var(--green); margin-top: 16px; }
+  .loading-sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 6px; }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--green); color: #000; padding: 10px 22px; border-radius: 30px; font-weight: 700; font-size: 0.9rem; z-index: 9999; transition: transform .3s ease; white-space: nowrap; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loading">
+  <div class="loading-ball">⚽</div>
+  <div class="loading-text">Controle de Pelada KF</div>
+  <div class="loading-sub">Carregando dados...</div>
+</div>
+
+<div class="header">
+  <div class="header-title">⚽ Controle de Pelada KF</div>
+  <div class="header-sub">KAUÊ FERRAZ · GERENCIADOR DE TIMES</div>
+  <div class="save-indicator" id="save-indicator"></div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('jogadores')"><span class="tab-icon">👥</span>JOGADORES</div>
+  <div class="tab" onclick="showTab('presenca')"><span class="tab-icon">✅</span>PRESENÇA</div>
+  <div class="tab" onclick="showTab('times')"><span class="tab-icon">🎲</span>TIMES</div>
+</div>
+
+<!-- JOGADORES -->
+<div class="page active" id="page-jogadores">
+  <div class="card">
+    <div class="card-title">➕ Adicionar Jogador</div>
+    <div style="margin-bottom:10px">
+      <div class="section-label">Nome do jogador</div>
+      <input type="text" id="input-nome" placeholder="Ex: Carlos, João..." maxlength="30" onkeydown="if(event.key==='Enter') addPlayer()">
+    </div>
+    <div style="margin-bottom:12px">
+      <div class="section-label">Nível de habilidade</div>
+      <div class="nivel-selector" id="nivel-selector">
+        <div class="nivel-btn" onclick="selectNivel(1)">1</div>
+        <div class="nivel-btn" onclick="selectNivel(2)">2</div>
+        <div class="nivel-btn" onclick="selectNivel(3)">3</div>
+        <div class="nivel-btn" onclick="selectNivel(4)">4</div>
+        <div class="nivel-btn" onclick="selectNivel(5)">5</div>
+      </div>
+      <div class="nivel-hint">1=Fraco · 2=Regular · 3=Bom · 4=Muito bom · 5=Craque</div>
+    </div>
+    <button class="btn btn-green" onclick="addPlayer()">✚ ADICIONAR</button>
+  </div>
+
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+    <div class="section-label" id="player-count-label">0 jogadores</div>
+    <button class="btn btn-outline btn-sm" onclick="clearAll()">🗑 Limpar tudo</button>
+  </div>
+  <div class="player-list" id="player-list"></div>
+</div>
+
+<!-- PRESENÇA -->
+<div class="page" id="page-presenca">
+  <div class="presence-count">
+    <div class="count-num" id="present-count">0</div>
+    <div class="count-label">Presentes hoje</div>
+  </div>
+  <div style="display:flex; gap:8px; margin-bottom:12px;">
+    <button class="btn btn-outline" style="flex:1" onclick="selectAll(true)">☑ Todos</button>
+    <button class="btn btn-outline" style="flex:1" onclick="selectAll(false)">☐ Nenhum</button>
+  </div>
+  <div id="presence-list"></div>
+</div>
+
+<!-- TIMES -->
+<div class="page" id="page-times">
+  <div class="card">
+    <div class="card-title">🎲 Sortear Times</div>
+    <div id="sort-info" style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
+      Marque os presentes e sorteie!
+    </div>
+    <button class="btn btn-gold" onclick="sortearTimes()">⚡ SORTEAR AGORA</button>
+    <div style="margin-top:8px">
+      <button class="btn btn-outline" onclick="sortearTimes()">🔄 Ressortear</button>
+    </div>
+  </div>
+  <div id="times-result">
+    <div class="empty-state"><div class="empty-icon">⚽</div><div class="empty-text">Clique em <strong>Sortear Agora</strong><br>para gerar os times!</div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── STATE ─────────────────────────────────────────────────────────────────
+let players = [];
+let selectedNivel = 3;
+const STORAGE_KEY = 'pelada_kf_players';
+
+// ─── STORAGE: tenta window.storage (Claude artifacts), cai para localStorage ──
+async function storageGet(key) {
+  // Tenta window.storage (Claude artifacts)
+  if (window.storage) {
+    try {
+      const r = await window.storage.get(key);
+      return r ? r.value : null;
+    } catch(e) {}
+  }
+  // Fallback: localStorage
+  try { return localStorage.getItem(key); } catch(e) { return null; }
+}
+
+async function storageSet(key, value) {
+  if (window.storage) {
+    try {
+      await window.storage.set(key, value);
+      return true;
+    } catch(e) {}
+  }
+  try { localStorage.setItem(key, value); return true; } catch(e) { return false; }
+}
+
+// ─── LOAD / SAVE ──────────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const saved = await storageGet(STORAGE_KEY);
+    if (saved) players = JSON.parse(saved);
+  } catch(e) { players = []; }
+}
+
+let saveTimer = null;
+async function saveData() {
+  setSaveIndicator('saving', '💾 Salvando...');
+  try {
+    const ok = await storageSet(STORAGE_KEY, JSON.stringify(players));
+    setSaveIndicator('saved', ok ? '✅ Salvo!' : '⚠️ Salvo localmente');
+  } catch(e) {
+    setSaveIndicator('error', '❌ Erro ao salvar');
+  }
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => setSaveIndicator('', ''), 2500);
+}
+
+function setSaveIndicator(cls, msg) {
+  const el = document.getElementById('save-indicator');
+  el.className = 'save-indicator ' + cls;
+  el.textContent = msg;
+}
+
+// ─── TABS ─────────────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  const idx = ['jogadores','presenca','times'].indexOf(name);
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+  if (name === 'presenca') renderPresence();
+  if (name === 'times') updateSortInfo();
+}
+
+// ─── NIVEL SELECTOR ───────────────────────────────────────────────────────
+function selectNivel(n) {
+  selectedNivel = n;
+  document.querySelectorAll('.nivel-btn').forEach((btn, i) => {
+    btn.className = 'nivel-btn';
+    if (i + 1 === n) btn.classList.add('sel-' + n);
+  });
+}
+
+// ─── ADD PLAYER ───────────────────────────────────────────────────────────
+async function addPlayer() {
+  const input = document.getElementById('input-nome');
+  const nome = input.value.trim();
+  if (!nome) { toast('Digite o nome!'); return; }
+  if (players.find(p => p.nome.toLowerCase() === nome.toLowerCase())) { toast('Jogador já cadastrado!'); return; }
+  players.push({ id: Date.now(), nome, nivel: selectedNivel, presente: false });
+  await saveData();
+  input.value = '';
+  input.focus();
+  renderPlayers();
+  toast('✅ ' + nome + ' adicionado!');
+}
+
+// ─── RENDER PLAYERS ───────────────────────────────────────────────────────
+function renderPlayers() {
+  const list = document.getElementById('player-list');
+  document.getElementById('player-count-label').textContent =
+    players.length + ' jogador' + (players.length !== 1 ? 'es' : '') + ' cadastrado' + (players.length !== 1 ? 's' : '');
+
+  if (players.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">👟</div><div class="empty-text">Nenhum jogador ainda.<br>Adicione acima!</div></div>`;
+    return;
+  }
+  const sorted = [...players].sort((a, b) => b.nivel - a.nivel);
+  list.innerHTML = sorted.map(p => `
+    <div class="player-item">
+      <div class="nivel-badge n${p.nivel}">${p.nivel}</div>
+      <div class="player-name">${esc(p.nome)}</div>
+      <div class="stars">${'★'.repeat(p.nivel)}${'☆'.repeat(5-p.nivel)}</div>
+      <button class="del-btn" onclick="editNivel(${p.id})">✏️</button>
+      <button class="del-btn" onclick="deletePlayer(${p.id})">✕</button>
+    </div>
+  `).join('');
+}
+
+async function editNivel(id) {
+  const p = players.find(x => x.id === id);
+  if (!p) return;
+  const n = prompt(`Nível de ${p.nome} (1-5):\n1=Fraco 2=Regular 3=Bom 4=Muito bom 5=Craque`, p.nivel);
+  if (n === null) return;
+  const num = parseInt(n);
+  if (isNaN(num) || num < 1 || num > 5) { toast('Use 1 a 5!'); return; }
+  p.nivel = num;
+  await saveData();
+  renderPlayers();
+  renderPresence();
+  toast('Nível atualizado!');
+}
+
+async function deletePlayer(id) {
+  players = players.filter(p => p.id !== id);
+  await saveData();
+  renderPlayers();
+  renderPresence();
+  toast('Jogador removido.');
+}
+
+async function clearAll() {
+  if (!confirm('Limpar todos os jogadores?')) return;
+  players = [];
+  await saveData();
+  renderPlayers();
+  renderPresence();
+}
+
+// ─── PRESENCE ─────────────────────────────────────────────────────────────
+function renderPresence() {
+  const list = document.getElementById('presence-list');
+  document.getElementById('present-count').textContent = players.filter(p => p.presente).length;
+
+  if (players.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">Cadastre jogadores primeiro!</div></div>`;
+    return;
+  }
+  const sorted = [...players].sort((a, b) => a.nome.localeCompare(b.nome));
+  list.innerHTML = sorted.map(p => `
+    <div class="presence-item ${p.presente ? 'present' : ''}" onclick="togglePresence(${p.id})">
+      <div class="check-circle">${p.presente ? '✓' : ''}</div>
+      <div class="nivel-badge n${p.nivel}">${p.nivel}</div>
+      <div style="flex:1">
+        <div style="font-weight:700">${esc(p.nome)}</div>
+        <div class="stars" style="font-size:0.72rem">${'★'.repeat(p.nivel)}${'☆'.repeat(5-p.nivel)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function togglePresence(id) {
+  const p = players.find(x => x.id === id);
+  if (p) { p.presente = !p.presente; await saveData(); renderPresence(); updateSortInfo(); }
+}
+
+async function selectAll(val) {
+  players.forEach(p => p.presente = val);
+  await saveData(); renderPresence(); updateSortInfo();
+}
+
+// ─── SORT INFO ────────────────────────────────────────────────────────────
+function updateSortInfo() {
+  const presentes = players.filter(p => p.presente);
+  const el = document.getElementById('sort-info');
+  if (!el) return;
+  if (presentes.length === 0) {
+    el.innerHTML = 'Marque os presentes e sorteie!';
+  } else {
+    const times = Math.floor(presentes.length / 6);
+    const resto = presentes.length % 6;
+    el.innerHTML = `<strong style="color:var(--green)">${presentes.length} presentes</strong> · ${times > 0 ? times + ' time(s) de 6' : '<span style="color:var(--red)">mínimo 6 para sortear</span>'}${resto > 0 ? (times > 0 ? ' + ' : '') + resto + ' reserva(s)' : ''}`;
+  }
+}
+
+// ─── SORTEAR ──────────────────────────────────────────────────────────────
+function sortearTimes() {
+  const presentes = players.filter(p => p.presente);
+  if (presentes.length < 6) { toast('Marque pelo menos 6 presentes!'); return; }
+
+  // Embaralha mantendo equilíbrio de nível
+  const sorted = [...presentes].sort((a, b) => {
+    if (b.nivel !== a.nivel) return b.nivel - a.nivel;
+    return Math.random() - 0.5;
+  });
+
+  const numTimesCompletos = Math.floor(presentes.length / 6);
+  const resto = presentes.length % 6;
+
+  // Distribui em times de 6 usando snake draft para equilibrar
+  const times = Array.from({length: numTimesCompletos}, () => []);
+  let dir = 1, cur = 0;
+  const jogadoresParaTimes = sorted.slice(0, numTimesCompletos * 6);
+  jogadoresParaTimes.forEach(p => {
+    times[cur].push(p);
+    cur += dir;
+    if (cur >= numTimesCompletos) { cur = numTimesCompletos - 1; dir = -1; }
+    else if (cur < 0) { cur = 0; dir = 1; }
+  });
+
+  // Restante vira um time separado (mesmo com menos de 6)
+  const timeResto = resto > 0 ? sorted.slice(numTimesCompletos * 6) : [];
+
+  renderTimes(times, timeResto);
+}
+
+function renderTimes(times, timeResto = []) {
+  const result = document.getElementById('times-result');
+  const configs = [
+    { classe: 'verde',    nome: '🟢 Time Verde' },
+    { classe: 'azul',     nome: '🔵 Time Azul' },
+    { classe: 'vermelho', nome: '🔴 Time Vermelho' },
+    { classe: 'verde',    nome: '🟢 Time 4' },
+    { classe: 'azul',     nome: '🔵 Time 5' },
+    { classe: 'vermelho', nome: '🔴 Time 6' },
+  ];
+
+  let html = '<div class="sort-container">';
+  times.forEach((time, idx) => {
+    const cfg = configs[idx % configs.length];
+    const avg = time.length ? (time.reduce((s, p) => s + p.nivel, 0) / time.length).toFixed(1) : '—';
+    html += `
+      <div class="time-card ${cfg.classe}">
+        <div class="time-header">
+          <div class="time-name">${cfg.nome}</div>
+          <div class="time-avg">⭐ Média: ${avg} &nbsp;·&nbsp; ${time.length} jogadores</div>
+        </div>
+        ${time.map((p, i) => `
+          <div class="time-player">
+            <div class="time-player-num">${i+1}</div>
+            <div class="nivel-badge n${p.nivel}">${p.nivel}</div>
+            <div class="time-player-name">${esc(p.nome)}</div>
+            <div style="font-size:0.7rem;color:#555">${'★'.repeat(p.nivel)}</div>
+          </div>
+        `).join('')}
+      </div>`;
+  });
+
+  // Time do resto (menos de 6) — exibe separado com aviso
+  if (timeResto.length > 0) {
+    const avg = (timeResto.reduce((s, p) => s + p.nivel, 0) / timeResto.length).toFixed(1);
+    html += `
+      <div class="time-card" style="border-color:var(--gold);background:linear-gradient(135deg,#2a1a00,#0a0a0a)">
+        <div class="time-header">
+          <div class="time-name" style="color:var(--gold)">🟡 Time Restante</div>
+          <div class="time-avg">⭐ Média: ${avg} &nbsp;·&nbsp; ${timeResto.length} jogadores</div>
+        </div>
+        <div style="font-size:0.72rem;color:var(--gold);margin-bottom:8px;opacity:0.8">⚠️ Time incompleto (${timeResto.length}/6)</div>
+        ${timeResto.map((p, i) => `
+          <div class="time-player">
+            <div class="time-player-num">${i+1}</div>
+            <div class="nivel-badge n${p.nivel}">${p.nivel}</div>
+            <div class="time-player-name">${esc(p.nome)}</div>
+            <div style="font-size:0.7rem;color:#555">${'★'.repeat(p.nivel)}</div>
+          </div>
+        `).join('')}
+      </div>`;
+  }
+
+  html += '</div>';
+  result.innerHTML = html;
+  toast('🎲 Times sorteados!');
+}
+
+// ─── UTILS ────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────
+(async () => {
+  await loadData();
+  selectNivel(3);
+  renderPlayers();
+  document.getElementById('loading').classList.add('hidden');
+})();
+</script>
+</body>
+</html>
