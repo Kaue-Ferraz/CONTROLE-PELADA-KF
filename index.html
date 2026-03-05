@@ -416,110 +416,92 @@ function sortearTimes() {
   const presentes = players.filter(p => p.presente);
   if (presentes.length < 6) { toast('Marque pelo menos 6 presentes!'); return; }
 
-  const numTimesCompletos = Math.floor(presentes.length / 6);
-  const resto = presentes.length % 6;
+  const numTimes = Math.ceil(presentes.length / 6);
 
-  // ── 1. Embaralha dentro de cada nível para aleatoriedade
+  // 1. Embaralha dentro de cada nivel
   const porNivel = {1:[], 2:[], 3:[], 4:[], 5:[]};
   presentes.forEach(p => porNivel[p.nivel].push(p));
   Object.values(porNivel).forEach(arr => arr.sort(() => Math.random() - 0.5));
-
-  // ── 2. Monta a lista total de grupos: times completos + (resto se houver)
-  const totalGrupos = numTimesCompletos + (resto > 0 ? 1 : 0);
-  const grupos = Array.from({length: totalGrupos}, () => []);
-
-  // ── 3. Snake draft por nível (5→1) distribuindo para TODOS os grupos
-  //       Os grupos de índice 0..numTimesCompletos-1 são os times de 6
-  //       O grupo de índice numTimesCompletos (se existir) é o restante
   const todosOrdenados = [];
-  for (let n = 5; n >= 1; n--) {
-    todosOrdenados.push(...porNivel[n]);
-  }
+  for (let n = 5; n >= 1; n--) todosOrdenados.push(...porNivel[n]);
 
+  // 2. Snake draft distribuindo para todos os times
+  const grupos = Array.from({length: numTimes}, () => []);
   let dir = 1, cur = 0;
   todosOrdenados.forEach(p => {
     grupos[cur].push(p);
     cur += dir;
-    if (cur >= totalGrupos) { cur = totalGrupos - 1; dir = -1; }
+    if (cur >= numTimes) { cur = numTimes - 1; dir = -1; }
     else if (cur < 0) { cur = 0; dir = 1; }
   });
 
-  // ── 4. Garante que os times completos tenham EXATAMENTE 6 jogadores
-  //       Se algum time ficou com mais de 6 (snake pode desequilibrar a contagem),
-  //       move os excedentes para o grupo restante.
-  if (resto > 0) {
-    for (let i = 0; i < numTimesCompletos; i++) {
-      while (grupos[i].length > 6) {
-        grupos[numTimesCompletos].push(grupos[i].pop());
-      }
+  // 3. Garante max 6 por time: excedentes vao pro time com menos jogadores
+  for (let i = 0; i < numTimes; i++) {
+    while (grupos[i].length > 6) {
+      const menorIdx = grupos.reduce((mi, g, gi) => g.length < grupos[mi].length ? gi : mi, 0);
+      grupos[menorIdx].push(grupos[i].pop());
     }
   }
 
-  // ── 5. Pós-ajuste: se o restante ficou com nível muito desequilibrado,
-  //       faz trocas para aproximar a média do restante da média geral
-  if (resto > 0) {
-    const mediaGeral = presentes.reduce((s, p) => s + p.nivel, 0) / presentes.length;
-    const grupoResto = grupos[numTimesCompletos];
-
-    // Tenta no máximo 30 trocas para equilibrar
-    for (let tentativa = 0; tentativa < 30; tentativa++) {
-      const mediaResto = mediaTime(grupoResto);
-      const diff = mediaResto - mediaGeral;
-      if (Math.abs(diff) <= 0.4) break; // já está equilibrado
-
-      // Procura troca benéfica: um jogador do restante e um de qualquer time
+  // 4. Equilibra o time incompleto (se houver)
+  const mediaGeral = presentes.reduce((s, p) => s + p.nivel, 0) / presentes.length;
+  const idxIncompleto = grupos.reduce((mi, g, gi) => g.length < grupos[mi].length ? gi : mi, 0);
+  if (grupos[idxIncompleto].length < 6) {
+    const grupoResto = grupos[idxIncompleto];
+    for (let tentativa = 0; tentativa < 40; tentativa++) {
+      const diff = mediaTime(grupoResto) - mediaGeral;
+      if (Math.abs(diff) <= 0.4) break;
       let melhorTroca = null, melhorMelhoria = 0;
       for (let r = 0; r < grupoResto.length; r++) {
-        for (let t = 0; t < numTimesCompletos; t++) {
+        for (let t = 0; t < numTimes; t++) {
+          if (t === idxIncompleto) continue;
           for (let j = 0; j < grupos[t].length; j++) {
             const pr = grupoResto[r], pt = grupos[t][j];
             if (pr.nivel === pt.nivel) continue;
-            // Simula a troca
-            const novaMediaResto = (grupoResto.reduce((s,p,i) => s + (i===r ? pt.nivel : p.nivel), 0)) / grupoResto.length;
-            const melhoria = Math.abs(diff) - Math.abs(novaMediaResto - mediaGeral);
-            if (melhoria > melhorMelhoria) {
-              melhorMelhoria = melhoria;
-              melhorTroca = { r, t, j };
-            }
+            const novaMedia = grupoResto.reduce((s,p,i) => s + (i===r ? pt.nivel : p.nivel), 0) / grupoResto.length;
+            const melhoria = Math.abs(diff) - Math.abs(novaMedia - mediaGeral);
+            if (melhoria > melhorMelhoria) { melhorMelhoria = melhoria; melhorTroca = {r,t,j}; }
           }
         }
       }
       if (!melhorTroca || melhorMelhoria < 0.05) break;
-      // Executa a melhor troca encontrada
-      const { r, t, j } = melhorTroca;
-      const tmp = grupoResto[r];
-      grupoResto[r] = grupos[t][j];
-      grupos[t][j] = tmp;
+      const {r,t,j} = melhorTroca;
+      [grupoResto[r], grupos[t][j]] = [grupos[t][j], grupoResto[r]];
     }
   }
 
-  const times = grupos.slice(0, numTimesCompletos);
-  const timeResto = resto > 0 ? grupos[numTimesCompletos] : [];
-
-  renderTimes(times, timeResto);
+  renderTimes(grupos);
 }
 
-function renderTimes(times, timeResto = []) {
+function renderTimes(grupos) {
   const result = document.getElementById('times-result');
-  const configs = [
-    { classe: 'verde',    nome: '🟢 Time Verde' },
-    { classe: 'azul',     nome: '🔵 Time Azul' },
-    { classe: 'vermelho', nome: '🔴 Time Vermelho' },
-    { classe: 'verde',    nome: '🟢 Time 4' },
-    { classe: 'azul',     nome: '🔵 Time 5' },
-    { classe: 'vermelho', nome: '🔴 Time 6' },
+  const cores = [
+    { classe: 'verde',    cor: 'var(--green)' },
+    { classe: 'azul',     cor: 'var(--blue)' },
+    { classe: 'vermelho', cor: 'var(--red)' },
   ];
 
+  // Identifica o time incompleto (menos jogadores), se houver
+  const minSize = Math.min(...grupos.map(g => g.length));
+  const maxSize = Math.max(...grupos.map(g => g.length));
+  const temIncompleto = minSize < maxSize;
+  const idxIncompleto = temIncompleto ? grupos.reduce((mi, g, gi) => g.length < grupos[mi].length ? gi : mi, 0) : -1;
+
   let html = '<div class="sort-container">';
-  times.forEach((time, idx) => {
-    const cfg = configs[idx % configs.length];
-    const avg = time.length ? (time.reduce((s, p) => s + p.nivel, 0) / time.length).toFixed(1) : '—';
+  grupos.forEach((time, idx) => {
+    const cfg = cores[idx % cores.length];
+    const avg = time.length ? (time.reduce((s, p) => s + p.nivel, 0) / time.length).toFixed(1) : '-';
+    const eIncompleto = idx === idxIncompleto;
+    const corCard = eIncompleto ? 'border-color:var(--gold);background:linear-gradient(135deg,#2a1a00,#0a0a0a)' : '';
+    const corNome = eIncompleto ? 'color:var(--gold)' : `color:${cfg.cor}`;
+    const classeCard = eIncompleto ? '' : cfg.classe;
     html += `
-      <div class="time-card ${cfg.classe}">
+      <div class="time-card ${classeCard}" ${eIncompleto ? `style="${corCard}"` : ''}>
         <div class="time-header">
-          <div class="time-name">${cfg.nome}</div>
-          <div class="time-avg">⭐ Média: ${avg} &nbsp;·&nbsp; ${time.length} jogadores</div>
+          <div class="time-name" style="${corNome}">⚽ Time ${idx + 1}${eIncompleto ? ' ⚠️' : ''}</div>
+          <div class="time-avg">⭐ ${avg} &nbsp;·&nbsp; ${time.length}/6</div>
         </div>
+        ${eIncompleto ? `<div style="font-size:0.72rem;color:var(--gold);margin-bottom:8px;opacity:0.8">Time incompleto (${time.length} de 6)</div>` : ''}
         ${time.map((p, i) => `
           <div class="time-player">
             <div class="time-player-num">${i+1}</div>
@@ -530,27 +512,6 @@ function renderTimes(times, timeResto = []) {
         `).join('')}
       </div>`;
   });
-
-  // Time do resto (menos de 6) — exibe separado com aviso
-  if (timeResto.length > 0) {
-    const avg = (timeResto.reduce((s, p) => s + p.nivel, 0) / timeResto.length).toFixed(1);
-    html += `
-      <div class="time-card" style="border-color:var(--gold);background:linear-gradient(135deg,#2a1a00,#0a0a0a)">
-        <div class="time-header">
-          <div class="time-name" style="color:var(--gold)">🟡 Time Restante</div>
-          <div class="time-avg">⭐ Média: ${avg} &nbsp;·&nbsp; ${timeResto.length} jogadores</div>
-        </div>
-        <div style="font-size:0.72rem;color:var(--gold);margin-bottom:8px;opacity:0.8">⚠️ Time incompleto (${timeResto.length}/6)</div>
-        ${timeResto.map((p, i) => `
-          <div class="time-player">
-            <div class="time-player-num">${i+1}</div>
-            <div class="nivel-badge n${p.nivel}">${p.nivel}</div>
-            <div class="time-player-name">${esc(p.nome)}</div>
-            <div style="font-size:0.7rem;color:#555">${'★'.repeat(p.nivel)}</div>
-          </div>
-        `).join('')}
-      </div>`;
-  }
 
   html += '</div>';
   result.innerHTML = html;
