@@ -416,7 +416,10 @@ function sortearTimes() {
   const presentes = players.filter(p => p.presente);
   if (presentes.length < 6) { toast('Marque pelo menos 6 presentes!'); return; }
 
-  const numTimes = Math.ceil(presentes.length / 6);
+  const numTimesCompletos = Math.floor(presentes.length / 6);
+  const resto = presentes.length % 6;
+  // Total de grupos: sempre coloca o incompleto (se existir) como o ULTIMO
+  const numTimes = resto > 0 ? numTimesCompletos + 1 : numTimesCompletos;
 
   // 1. Embaralha dentro de cada nivel
   const porNivel = {1:[], 2:[], 3:[], 4:[], 5:[]};
@@ -425,34 +428,32 @@ function sortearTimes() {
   const todosOrdenados = [];
   for (let n = 5; n >= 1; n--) todosOrdenados.push(...porNivel[n]);
 
-  // 2. Snake draft distribuindo para todos os times
+  // 2. Distribui nos times COMPLETOS (0..numTimesCompletos-1) via snake draft
+  //    depois distribui os restantes no ultimo grupo
   const grupos = Array.from({length: numTimes}, () => []);
   let dir = 1, cur = 0;
-  todosOrdenados.forEach(p => {
+  // Distribui apenas entre os times completos
+  const jogadoresCompletos = todosOrdenados.slice(0, numTimesCompletos * 6);
+  jogadoresCompletos.forEach(p => {
     grupos[cur].push(p);
     cur += dir;
-    if (cur >= numTimes) { cur = numTimes - 1; dir = -1; }
+    if (cur >= numTimesCompletos) { cur = numTimesCompletos - 1; dir = -1; }
     else if (cur < 0) { cur = 0; dir = 1; }
   });
 
-  // 3. Garante max 6 por time: excedentes vao SEMPRE para o ULTIMO grupo
-  const idxUltimo = numTimes - 1;
-  for (let i = 0; i < idxUltimo; i++) {
-    while (grupos[i].length > 6) {
-      grupos[idxUltimo].push(grupos[i].pop());
-    }
-  }
+  // 3. Os restantes vao direto pro ultimo grupo
+  if (resto > 0) {
+    todosOrdenados.slice(numTimesCompletos * 6).forEach(p => grupos[numTimes - 1].push(p));
 
-  // 4. Equilibra o ultimo time se for incompleto
-  const mediaGeral = presentes.reduce((s, p) => s + p.nivel, 0) / presentes.length;
-  if (grupos[idxUltimo].length < 6) {
-    const grupoResto = grupos[idxUltimo];
+    // 4. Equilibra o ultimo time: faz trocas com os outros para nivelar a media
+    const mediaGeral = presentes.reduce((s, p) => s + p.nivel, 0) / presentes.length;
+    const grupoResto = grupos[numTimes - 1];
     for (let tentativa = 0; tentativa < 40; tentativa++) {
       const diff = mediaTime(grupoResto) - mediaGeral;
       if (Math.abs(diff) <= 0.4) break;
       let melhorTroca = null, melhorMelhoria = 0;
       for (let r = 0; r < grupoResto.length; r++) {
-        for (let t = 0; t < idxUltimo; t++) {
+        for (let t = 0; t < numTimesCompletos; t++) {
           for (let j = 0; j < grupos[t].length; j++) {
             const pr = grupoResto[r], pt = grupos[t][j];
             if (pr.nivel === pt.nivel) continue;
@@ -468,10 +469,10 @@ function sortearTimes() {
     }
   }
 
-  renderTimes(grupos);
+  renderTimes(grupos, resto > 0);
 }
 
-function renderTimes(grupos) {
+function renderTimes(grupos, temIncompleto = false) {
   const result = document.getElementById('times-result');
   const cores = [
     { classe: 'verde',    cor: 'var(--green)' },
@@ -479,10 +480,7 @@ function renderTimes(grupos) {
     { classe: 'vermelho', cor: 'var(--red)' },
   ];
 
-  // Time incompleto e sempre o ultimo
-  const minSize = Math.min(...grupos.map(g => g.length));
-  const maxSize = Math.max(...grupos.map(g => g.length));
-  const temIncompleto = minSize < maxSize;
+  // Time incompleto e SEMPRE o ultimo
   const idxIncompleto = temIncompleto ? grupos.length - 1 : -1;
 
   let html = '<div class="sort-container">';
