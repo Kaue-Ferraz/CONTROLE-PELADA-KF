@@ -1846,7 +1846,7 @@ function imprimirRelatorioMensalidades() {
     .footer { margin-top: 30px; font-size: 0.75rem; color: #888; border-top: 1px solid #ccc; padding-top: 8px; }
     ${ajustes.length > 0 ? `.ajuste-item { display:flex; justify-content:space-between; padding:6px 12px; font-size:0.83rem; border-bottom:1px solid #eee; }` : ''}
   </style></head><body>
-  <h1>⚽ Pelada KF — Mensalidades ${nomeMes} ${ano}</h1>
+  <h1>⚽ Controle de Pelada KF — Mensalidades ${nomeMes} ${ano}</h1>
   <div class="sub">Gerado em ${new Date().toLocaleString('pt-BR')} · Mensalidade: R$ ${(finData.mensalidade||25).toFixed(2)}</div>
 
   <div class="resumo">
@@ -2038,7 +2038,7 @@ function imprimirRelatorioMensal() {
     .green { color: #1a7a3a; } .red { color: #cc0000; } .blue { color: #1a3a8a; }
     .footer { margin-top: 30px; font-size: 0.75rem; color: #888; border-top: 1px solid #ccc; padding-top: 8px; }
   </style></head><body>
-  <h1>⚽ Pelada KF — ${nomeMes} ${anoFiltro}</h1>
+  <h1>⚽ Controle de Pelada KF — ${nomeMes} ${anoFiltro}</h1>
   <p style="color:#555;margin-bottom:16px">Gerado em ${new Date().toLocaleString('pt-BR')}</p>
 
   <div class="resumo">
@@ -2120,7 +2120,7 @@ function imprimirRelatorioAnual() {
     .footer { margin-top: 30px; font-size: 0.75rem; color: #888; border-top: 1px solid #ccc; padding-top: 8px; }
     @media print { .no-print { display:none; } }
   </style></head><body>
-  <h1>⚽ Pelada KF — Relatório Anual ${anoFiltro}</h1>
+  <h1>⚽ Controle de Pelada KF — Relatório Anual ${anoFiltro}</h1>
   <p style="color:#555;margin-bottom:16px">Gerado em ${new Date().toLocaleString('pt-BR')}</p>
 
   <div class="resumo">
