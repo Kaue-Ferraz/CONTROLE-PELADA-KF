@@ -183,6 +183,28 @@
 
   .month-history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--surface2); border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 7px; }
 
+  .entrada-item { display: flex; align-items: center; gap: 10px; background: #0d2e14; border-radius: var(--radius-sm); padding: 10px 12px; border: 1px solid var(--green); margin-bottom: 7px; }
+  .entrada-desc { flex: 1; font-size: 0.9rem; font-weight: 600; }
+  .entrada-val { font-weight: 900; color: var(--green); font-size: 0.9rem; }
+  .entrada-del { background: none; border: none; color: #555; cursor: pointer; font-size: 1rem; padding: 4px; }
+  .entrada-del:active { color: var(--red); }
+
+  @media print {
+    body { background: #fff !important; color: #000 !important; }
+    .header, .tabs, .page:not(.active), .fin-tabs, #finpage-mensalidades, #finpage-despesas, .no-print { display: none !important; }
+    #finpage-resumo { display: block !important; }
+    #vis-geral, #vis-mensal { display: block !important; }
+    .card { border: 1px solid #ccc !important; background: #fff !important; color: #000 !important; break-inside: avoid; }
+    .stat-box { border: 1px solid #ccc !important; background: #f5f5f5 !important; }
+    .stat-val { color: #000 !important; }
+    .stat-lbl { color: #555 !important; }
+    .card-title { color: #1a7a3a !important; }
+    .month-history-item { background: #f5f5f5 !important; border: 1px solid #ccc !important; }
+    .print-only { display: block !important; }
+    .btn { display: none !important; }
+  }
+  .print-only { display: none; }
+
   .cfg-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 10px; }
   .cfg-row input { flex: 1; }
 
@@ -353,6 +375,21 @@
 
   <!-- ── DESPESAS ── -->
   <div class="fin-page" id="finpage-despesas">
+
+    <!-- Sub-toggle Despesas / Entradas Avulsas -->
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <button id="btn-desp-desp" onclick="setDespView('despesas')"
+        style="flex:1;padding:9px;border-radius:10px;border:2px solid var(--red);background:var(--red);color:#fff;font-weight:900;font-size:0.8rem;cursor:pointer">
+        🧾 Despesas
+      </button>
+      <button id="btn-desp-entrada" onclick="setDespView('entradas')"
+        style="flex:1;padding:9px;border-radius:10px;border:2px solid var(--border);background:var(--surface2);color:var(--text-muted);font-weight:700;font-size:0.8rem;cursor:pointer">
+        💚 Entradas Avulsas
+      </button>
+    </div>
+
+    <!-- PAINEL DESPESAS -->
+    <div id="desp-painel">
     <div class="card">
       <div class="card-title">➕ Registrar Despesa</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
@@ -406,6 +443,68 @@
       <div id="desp-list"></div>
       <div id="desp-total" style="text-align:right; margin-top:8px; font-size:0.9rem; color:var(--red); font-weight:900; padding-top:8px; border-top:1px solid var(--border)"></div>
     </div>
+  </div> <!-- fim desp-painel -->
+
+    <!-- PAINEL ENTRADAS AVULSAS -->
+    <div id="entrada-painel" style="display:none">
+    <div class="card" style="border-color:var(--green)">
+      <div class="card-title">💚 Registrar Entrada Avulsa</div>
+      <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:12px;line-height:1.6">
+        Use para patrocínios, visitantes que pagaram, rifas, qualquer receita extra fora da mensalidade.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <div class="section-label">Ano</div>
+          <input type="number" id="input-entrada-ano" placeholder="2025" min="2020" max="2099">
+        </div>
+        <div>
+          <div class="section-label">Mês</div>
+          <select id="sel-mes-entrada">
+            <option value="01">Janeiro</option><option value="02">Fevereiro</option>
+            <option value="03">Março</option><option value="04">Abril</option>
+            <option value="05">Maio</option><option value="06">Junho</option>
+            <option value="07">Julho</option><option value="08">Agosto</option>
+            <option value="09">Setembro</option><option value="10">Outubro</option>
+            <option value="11">Novembro</option><option value="12">Dezembro</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <div class="section-label">Descrição</div>
+        <input type="text" id="input-entrada-desc" placeholder="Ex: Patrocínio XYZ, Visitante João..." maxlength="60">
+      </div>
+      <div style="margin-bottom:12px">
+        <div class="section-label">Valor (R$)</div>
+        <input type="number" id="input-entrada-val" placeholder="0.00" step="0.01" min="0">
+      </div>
+      <button class="btn btn-green" onclick="addEntrada()">💚 ADICIONAR ENTRADA</button>
+    </div>
+
+    <div class="card" style="border-color:var(--green)">
+      <div class="card-title">💚 Lançamentos de Entradas</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div>
+          <div class="section-label">Filtrar ano</div>
+          <input type="number" id="input-entrada-view-ano" placeholder="2025" min="2020" max="2099" oninput="renderEntradas()">
+        </div>
+        <div>
+          <div class="section-label">Filtrar mês</div>
+          <select id="sel-mes-entrada-view" onchange="renderEntradas()">
+            <option value="">Todos os meses</option>
+            <option value="01">Janeiro</option><option value="02">Fevereiro</option>
+            <option value="03">Março</option><option value="04">Abril</option>
+            <option value="05">Maio</option><option value="06">Junho</option>
+            <option value="07">Julho</option><option value="08">Agosto</option>
+            <option value="09">Setembro</option><option value="10">Outubro</option>
+            <option value="11">Novembro</option><option value="12">Dezembro</option>
+          </select>
+        </div>
+      </div>
+      <div id="entrada-list"></div>
+      <div id="entrada-total" style="text-align:right; margin-top:8px; font-size:0.9rem; color:var(--green); font-weight:900; padding-top:8px; border-top:1px solid var(--border)"></div>
+    </div>
+    </div> <!-- fim entrada-painel -->
+
   </div>
 
   <!-- ── RESUMO ── -->
@@ -432,10 +531,12 @@
           <input type="number" id="input-resumo-ano-geral" placeholder="2025" min="2020" max="2099" oninput="renderResumoGeral()">
         </div>
         <div class="stat-grid">
-          <div class="stat-box green"><div class="stat-val green" id="res-g-receita">R$ 0</div><div class="stat-lbl">Receita Total</div></div>
+          <div class="stat-box green"><div class="stat-val green" id="res-g-receita">R$ 0</div><div class="stat-lbl">Receita Mensalidades</div></div>
+          <div class="stat-box green" style="border-color:#00aa66"><div class="stat-val green" id="res-g-entradas" style="color:#00cc77">R$ 0</div><div class="stat-lbl">Entradas Avulsas</div></div>
           <div class="stat-box red"><div class="stat-val red" id="res-g-despesa">R$ 0</div><div class="stat-lbl">Despesas Total</div></div>
           <div class="stat-box gold" style="grid-column:1/-1"><div class="stat-val" id="res-g-saldo" style="font-size:2rem">R$ 0</div><div class="stat-lbl">💰 Saldo Final</div></div>
         </div>
+        <button class="btn no-print" onclick="imprimirRelatorioAnual()" style="margin-top:10px;background:#1a3a6b;color:#60a5fa;border:1px solid #3b82f6;font-family:Nunito,sans-serif;font-size:0.88rem;font-weight:700;letter-spacing:0">🖨️ Imprimir / Salvar PDF (Ano Inteiro)</button>
       </div>
 
       <div class="card">
@@ -473,14 +574,16 @@
           </div>
         </div>
         <div class="stat-grid">
-          <div class="stat-box green"><div class="stat-val green" id="res-receita">R$ 0</div><div class="stat-lbl">Receita</div></div>
+          <div class="stat-box green"><div class="stat-val green" id="res-receita">R$ 0</div><div class="stat-lbl">Mensalidades</div></div>
+          <div class="stat-box green" style="border-color:#00aa66"><div class="stat-val green" id="res-entradas" style="color:#00cc77">R$ 0</div><div class="stat-lbl">Entradas Avulsas</div></div>
           <div class="stat-box red"><div class="stat-val red" id="res-despesa">R$ 0</div><div class="stat-lbl">Despesas</div></div>
           <div class="stat-box gold"><div class="stat-val gold" id="res-saldo">R$ 0</div><div class="stat-lbl">Saldo</div></div>
-          <div class="stat-box blue"><div class="stat-val blue" id="res-inadimplentes">0</div><div class="stat-lbl">Pendentes</div></div>
+          <div class="stat-box blue" style="grid-column:1/-1"><div class="stat-val blue" id="res-inadimplentes">0</div><div class="stat-lbl">Pendentes no Mês</div></div>
         </div>
-        <div class="section-label" style="margin-top:4px">Arrecadação do mês</div>
+        <div class="section-label" style="margin-top:4px">Arrecadação do mês (mensalidades)</div>
         <div class="resumo-bar"><div class="resumo-bar-fill" id="bar-arrecad" style="background:var(--green);width:0%"></div></div>
         <div id="bar-label" style="font-size:0.72rem;color:var(--text-muted);text-align:right"></div>
+        <button class="btn no-print" onclick="imprimirRelatorioMensal()" style="margin-top:10px;background:#1a3a6b;color:#60a5fa;border:1px solid #3b82f6;font-family:Nunito,sans-serif;font-size:0.88rem;font-weight:700;letter-spacing:0">🖨️ Imprimir / Salvar PDF (Mês)</button>
       </div>
 
       <div class="card">
@@ -495,9 +598,18 @@
         <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:10px">Referência: mês atual do sistema</div>
         <div id="atencao-list"></div>
       </div>
-    </div>
 
-  </div>
+      <div class="card no-print" style="border-color:#ff3b3b;margin-top:8px">
+        <div class="card-title" style="color:var(--red)">🗑️ Zerar Lançamentos</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:14px;line-height:1.6">
+          Remove <strong style="color:#f87171">todos</strong> os lançamentos de despesas, entradas avulsas e mensalidades. Os jogadores cadastrados são mantidos. Use para começar um novo período do zero.
+        </div>
+        <button class="btn" onclick="zerarLancamentos()" style="background:#2e0a0a;color:var(--red);border:1px solid var(--red);font-family:Nunito,sans-serif;font-weight:900;font-size:0.9rem;letter-spacing:0">
+          🗑️ ZERAR TODOS OS LANÇAMENTOS
+        </button>
+      </div>
+
+    </div> <!-- fim vis-mensal -->
 
 </div>
 
@@ -1002,7 +1114,8 @@ let finData = {
   mensalidade: 25,
   ano: new Date().getFullYear(),
   pagamentos: {},   // { 'YYYY-MM': { playerId: true } }
-  despesas: {}      // { 'YYYY-MM': [ {id, desc, valor} ] }
+  despesas: {},     // { 'YYYY-MM': [ {id, desc, valor} ] }
+  entradas: {}      // { 'YYYY-MM': [ {id, desc, valor} ] }  ← entradas avulsas
 };
 
 // Mês atualmente selecionado na aba mensalidades (número 1-12)
@@ -1086,6 +1199,22 @@ function initFinanceiro() {
   document.getElementById('input-desp-ano').value = finData.ano || anoAtual;
   document.getElementById('sel-mes-desp').value = String(mesAtual).padStart(2,'0');
 
+  // Preenche campos entradas avulsas
+  const entAno = document.getElementById('input-entrada-ano');
+  const entMes = document.getElementById('sel-mes-entrada');
+  const entViewAno = document.getElementById('input-entrada-view-ano');
+  const entViewMes = document.getElementById('sel-mes-entrada-view');
+  if (entAno) entAno.value = finData.ano || anoAtual;
+  if (entMes) entMes.value = String(mesAtual).padStart(2,'0');
+  if (entViewAno) entViewAno.value = finData.ano || anoAtual;
+  if (entViewMes) entViewMes.value = String(mesAtual).padStart(2,'0');
+
+  // Garante entradas no finData
+  if (!finData.entradas) finData.entradas = {};
+
+  // Inicializa toggle despesas/entradas
+  setDespView('despesas');
+
   // Preenche campos view despesas
   document.getElementById('input-desp-view-ano').value = finData.ano || anoAtual;
   document.getElementById('sel-mes-desp-view').value = String(mesAtual).padStart(2,'0');
@@ -1122,7 +1251,7 @@ function showFinTab(name) {
   const idx = ['mensalidades','despesas','resumo'].indexOf(name);
   tabs[idx].classList.add('active');
   if (name === 'mensalidades') renderMensalidades();
-  if (name === 'despesas') renderDespesas();
+  if (name === 'despesas') { renderDespesas(); renderEntradas(); }
   if (name === 'resumo') { renderResumoGeral(); renderResumo(); }
 }
 
@@ -1369,8 +1498,9 @@ function renderResumoGeral() {
   const anoFiltro = parseInt(document.getElementById('input-resumo-ano-geral')?.value) || (finData.ano || anoSistema());
   const elAno = document.getElementById('res-geral-ano');
   if (elAno) elAno.textContent = anoFiltro;
+  if (!finData.entradas) finData.entradas = {};
 
-  let receita = 0, despTotal = 0;
+  let receita = 0, despTotal = 0, entTotal = 0;
   Object.keys(finData.pagamentos).forEach(key => {
     if (!key.startsWith(anoFiltro + '-')) return;
     receita += Object.values(finData.pagamentos[key]).filter(Boolean).length * (finData.mensalidade || 25);
@@ -1379,10 +1509,15 @@ function renderResumoGeral() {
     if (!key.startsWith(anoFiltro + '-')) return;
     despTotal += (finData.despesas[key] || []).reduce((s,d) => s + d.valor, 0);
   });
+  Object.keys(finData.entradas).forEach(key => {
+    if (!key.startsWith(anoFiltro + '-')) return;
+    entTotal += (finData.entradas[key] || []).reduce((s,e) => s + e.valor, 0);
+  });
 
-  const saldo = receita - despTotal;
-  document.getElementById('res-g-receita').textContent = 'R$ ' + receita.toFixed(2);
-  document.getElementById('res-g-despesa').textContent = 'R$ ' + despTotal.toFixed(2);
+  const saldo = receita + entTotal - despTotal;
+  document.getElementById('res-g-receita').textContent  = 'R$ ' + receita.toFixed(2);
+  document.getElementById('res-g-entradas').textContent = 'R$ ' + entTotal.toFixed(2);
+  document.getElementById('res-g-despesa').textContent  = 'R$ ' + despTotal.toFixed(2);
   const salEl = document.getElementById('res-g-saldo');
   salEl.textContent = 'R$ ' + saldo.toFixed(2);
   salEl.style.color = saldo >= 0 ? 'var(--green)' : 'var(--red)';
@@ -1460,13 +1595,16 @@ function renderResumo() {
   const receita = pagos * (finData.mensalidade || 25);
   const desps = finData.despesas[key] || [];
   const despTotal = desps.reduce((s,d) => s + d.valor, 0);
-  const saldo = receita - despTotal;
+  const entradas = (finData.entradas || {})[key] || [];
+  const entTotal = entradas.reduce((s,e) => s + e.valor, 0);
+  const saldo = receita + entTotal - despTotal;
   const pendentes = ativos.filter(p => !pag[p.id]).length;
 
-  document.getElementById('res-receita').textContent = 'R$ ' + receita.toFixed(2);
-  document.getElementById('res-despesa').textContent = 'R$ ' + despTotal.toFixed(2);
-  document.getElementById('res-saldo').textContent   = 'R$ ' + saldo.toFixed(2);
-  document.getElementById('res-saldo').style.color   = saldo >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('res-receita').textContent  = 'R$ ' + receita.toFixed(2);
+  document.getElementById('res-entradas').textContent = 'R$ ' + entTotal.toFixed(2);
+  document.getElementById('res-despesa').textContent  = 'R$ ' + despTotal.toFixed(2);
+  document.getElementById('res-saldo').textContent    = 'R$ ' + saldo.toFixed(2);
+  document.getElementById('res-saldo').style.color    = saldo >= 0 ? 'var(--green)' : 'var(--red)';
   document.getElementById('res-inadimplentes').textContent = pendentes;
 
   const esperado = ativos.length * (finData.mensalidade || 25);
@@ -1550,6 +1688,281 @@ function toast(msg) {
   el.classList.add('show');
   clearTimeout(el._t);
   el._t = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ─── DESPESAS / ENTRADAS TOGGLE ────────────────────────────────────────────
+let despView = 'despesas';
+function setDespView(v) {
+  despView = v;
+  const btnD = document.getElementById('btn-desp-desp');
+  const btnE = document.getElementById('btn-desp-entrada');
+  const painelD = document.getElementById('desp-painel');
+  const painelE = document.getElementById('entrada-painel');
+  if (!btnD) return;
+  btnD.style.background  = v === 'despesas' ? 'var(--red)'      : 'var(--surface2)';
+  btnD.style.color        = v === 'despesas' ? '#fff'            : 'var(--text-muted)';
+  btnD.style.borderColor  = v === 'despesas' ? 'var(--red)'      : 'var(--border)';
+  btnE.style.background  = v === 'entradas' ? 'var(--green)'     : 'var(--surface2)';
+  btnE.style.color        = v === 'entradas' ? '#000'            : 'var(--text-muted)';
+  btnE.style.borderColor  = v === 'entradas' ? 'var(--green)'    : 'var(--border)';
+  painelD.style.display = v === 'despesas' ? 'block' : 'none';
+  painelE.style.display = v === 'entradas' ? 'block' : 'none';
+}
+
+// ─── ENTRADAS AVULSAS ──────────────────────────────────────────────────────
+async function addEntrada() {
+  const anoInput = parseInt(document.getElementById('input-entrada-ano').value);
+  const mesInput = document.getElementById('sel-mes-entrada').value;
+  const desc = document.getElementById('input-entrada-desc').value.trim();
+  const val  = parseFloat(document.getElementById('input-entrada-val').value);
+  if (isNaN(anoInput) || anoInput < 2020) { toast('Informe um ano válido!'); return; }
+  if (!mesInput) { toast('Selecione o mês!'); return; }
+  if (!desc) { toast('Informe a descrição!'); return; }
+  if (isNaN(val) || val <= 0) { toast('Informe um valor válido!'); return; }
+  const key = anoInput + '-' + mesInput;
+  if (!finData.entradas) finData.entradas = {};
+  if (!finData.entradas[key]) finData.entradas[key] = [];
+  finData.entradas[key].push({ id: Date.now(), desc, valor: val });
+  await saveFinData();
+  document.getElementById('input-entrada-desc').value = '';
+  document.getElementById('input-entrada-val').value = '';
+  document.getElementById('input-entrada-view-ano').value = anoInput;
+  document.getElementById('sel-mes-entrada-view').value = mesInput;
+  renderEntradas();
+  renderResumo();
+  renderResumoGeral();
+  toast('💚 Entrada registrada!');
+}
+
+async function delEntrada(key, id) {
+  if (!finData.entradas || !finData.entradas[key]) return;
+  finData.entradas[key] = finData.entradas[key].filter(d => d.id !== id);
+  await saveFinData();
+  renderEntradas();
+  renderResumo();
+  renderResumoGeral();
+  toast('Entrada removida.');
+}
+
+function renderEntradas() {
+  const anoFiltro = parseInt(document.getElementById('input-entrada-view-ano')?.value) || 0;
+  const mesFiltro = document.getElementById('sel-mes-entrada-view')?.value || '';
+  const list     = document.getElementById('entrada-list');
+  const totalEl  = document.getElementById('entrada-total');
+  if (!list) return;
+  if (!finData.entradas) finData.entradas = {};
+
+  let chavesFiltradas = Object.keys(finData.entradas).filter(key => {
+    const [a, m] = key.split('-');
+    const aBate = !anoFiltro || parseInt(a) === anoFiltro;
+    const mBate = !mesFiltro || m === mesFiltro;
+    return aBate && mBate;
+  }).sort();
+
+  if (chavesFiltradas.length === 0) {
+    list.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:0.85rem">Nenhuma entrada encontrada.</div>`;
+    totalEl.textContent = '';
+    return;
+  }
+
+  let total = 0;
+  let html = '';
+  chavesFiltradas.forEach(key => {
+    const [a, m] = key.split('-');
+    const nomeMes = NOMES_MESES[parseInt(m)-1];
+    const entradas = finData.entradas[key] || [];
+    if (entradas.length === 0) return;
+    html += `<div style="font-size:0.7rem;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px">${nomeMes} ${a}</div>`;
+    entradas.forEach(e => {
+      total += e.valor;
+      html += `
+        <div class="entrada-item">
+          <div style="font-size:1rem;flex-shrink:0">💚</div>
+          <div class="entrada-desc">${esc(e.desc)}</div>
+          <div class="entrada-val">+R$ ${e.valor.toFixed(2)}</div>
+          <button class="entrada-del" onclick="delEntrada('${key}', ${e.id})">✕</button>
+        </div>`;
+    });
+  });
+
+  list.innerHTML = html || `<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:0.85rem">Nenhuma entrada encontrada.</div>`;
+  totalEl.textContent = total > 0 ? `Total: +R$ ${total.toFixed(2)}` : '';
+}
+
+// ─── ZERAR LANÇAMENTOS ────────────────────────────────────────────────────
+async function zerarLancamentos() {
+  if (!confirm('⚠️ ATENÇÃO!\n\nIsso vai apagar TODOS os lançamentos:\n• Mensalidades pagas\n• Despesas\n• Entradas avulsas\n\nOs jogadores cadastrados serão mantidos.\n\nTem certeza?')) return;
+  if (!confirm('Confirme novamente: deseja ZERAR todos os lançamentos financeiros?')) return;
+  finData.pagamentos = {};
+  finData.despesas = {};
+  finData.entradas = {};
+  await saveFinData();
+  initFinanceiro();
+  toast('🗑️ Todos os lançamentos foram zerados!');
+}
+
+// ─── IMPRESSÃO / PDF ──────────────────────────────────────────────────────
+function imprimirRelatorioMensal() {
+  const anoFiltro = parseInt(document.getElementById('input-resumo-ano')?.value) || anoSistema();
+  const mesFiltro = document.getElementById('sel-mes-resumo')?.value || String(mesSistema()).padStart(2,'0');
+  const key = anoFiltro + '-' + mesFiltro;
+  const nomeMes = NOMES_MESES[parseInt(mesFiltro)-1];
+
+  const ativos = players.filter(p => p.ativo !== false);
+  const pag = finData.pagamentos[key] || {};
+  const entradas = (finData.entradas || {})[key] || [];
+  const despesas = (finData.despesas || {})[key] || [];
+
+  const pagos    = ativos.filter(p => !!pag[p.id]);
+  const pendentes = ativos.filter(p => !pag[p.id]);
+  const recMens  = pagos.length * (finData.mensalidade || 25);
+  const recExtra = entradas.reduce((s, e) => s + e.valor, 0);
+  const despTotal = despesas.reduce((s, d) => s + d.valor, 0);
+  const saldo = recMens + recExtra - despTotal;
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Relatório ${nomeMes} ${anoFiltro}</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 30px; color: #111; font-size: 14px; }
+    h1 { color: #1a7a3a; border-bottom: 2px solid #1a7a3a; padding-bottom: 8px; }
+    h2 { color: #145228; margin-top: 20px; font-size: 1rem; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    th { background: #145228; color: #fff; padding: 7px 10px; text-align: left; font-size: 0.85rem; }
+    td { padding: 6px 10px; border-bottom: 1px solid #eee; font-size: 0.85rem; }
+    tr:nth-child(even) td { background: #f5f5f5; }
+    .resumo { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
+    .box { border: 1px solid #ccc; border-radius: 8px; padding: 10px; text-align: center; }
+    .box-val { font-size: 1.3rem; font-weight: 900; }
+    .green { color: #1a7a3a; } .red { color: #cc0000; } .blue { color: #1a3a8a; }
+    .footer { margin-top: 30px; font-size: 0.75rem; color: #888; border-top: 1px solid #ccc; padding-top: 8px; }
+  </style></head><body>
+  <h1>⚽ Pelada KF — ${nomeMes} ${anoFiltro}</h1>
+  <p style="color:#555;margin-bottom:16px">Gerado em ${new Date().toLocaleString('pt-BR')}</p>
+
+  <div class="resumo">
+    <div class="box"><div class="box-val green">R$ ${recMens.toFixed(2)}</div><div>Mensalidades</div></div>
+    <div class="box"><div class="box-val green">R$ ${recExtra.toFixed(2)}</div><div>Entradas Avulsas</div></div>
+    <div class="box"><div class="box-val red">R$ ${despTotal.toFixed(2)}</div><div>Despesas</div></div>
+    <div class="box"><div class="box-val ${saldo >= 0 ? 'green' : 'red'}">R$ ${saldo.toFixed(2)}</div><div>Saldo</div></div>
+  </div>
+
+  <h2>✅ Mensalidades Pagas (${pagos.length})</h2>
+  <table><tr><th>#</th><th>Jogador</th><th>Valor</th></tr>
+  ${pagos.map((p,i) => `<tr><td>${i+1}</td><td>${esc(p.nome)}</td><td>R$ ${(finData.mensalidade||25).toFixed(2)}</td></tr>`).join('')}
+  ${pagos.length === 0 ? '<tr><td colspan="3" style="text-align:center;color:#888">Nenhum</td></tr>' : ''}
+  </table>
+
+  <h2>⏳ Pendentes (${pendentes.length})</h2>
+  <table><tr><th>#</th><th>Jogador</th></tr>
+  ${pendentes.map((p,i) => `<tr><td>${i+1}</td><td>${esc(p.nome)}</td></tr>`).join('')}
+  ${pendentes.length === 0 ? '<tr><td colspan="2" style="text-align:center;color:#888">Nenhum</td></tr>' : ''}
+  </table>
+
+  ${entradas.length > 0 ? `
+  <h2>💚 Entradas Avulsas</h2>
+  <table><tr><th>#</th><th>Descrição</th><th>Valor</th></tr>
+  ${entradas.map((e,i) => `<tr><td>${i+1}</td><td>${esc(e.desc)}</td><td>+R$ ${e.valor.toFixed(2)}</td></tr>`).join('')}
+  </table>` : ''}
+
+  ${despesas.length > 0 ? `
+  <h2>🧾 Despesas</h2>
+  <table><tr><th>#</th><th>Descrição</th><th>Valor</th></tr>
+  ${despesas.map((d,i) => `<tr><td>${i+1}</td><td>${esc(d.desc)}</td><td>-R$ ${d.valor.toFixed(2)}</td></tr>`).join('')}
+  </table>` : ''}
+
+  <div class="footer">Controle de Pelada KF · Relatório gerado automaticamente</div>
+  </body></html>`);
+  win.document.close();
+  win.print();
+}
+
+function imprimirRelatorioAnual() {
+  const anoFiltro = parseInt(document.getElementById('input-resumo-ano-geral')?.value) || anoSistema();
+  const ativos = players.filter(p => p.ativo !== false);
+  if (!finData.entradas) finData.entradas = {};
+
+  let recMensTotal = 0, recExtraTotal = 0, despTotalGeral = 0;
+  const mesesData = NOMES_MESES.map((nomeMes, idx) => {
+    const m = String(idx + 1).padStart(2, '0');
+    const key = `${anoFiltro}-${m}`;
+    const pag = finData.pagamentos[key] || {};
+    const entradas = (finData.entradas[key] || []);
+    const despesas = (finData.despesas[key] || []);
+    const pagos = ativos.filter(p => !!pag[p.id]);
+    const pendentes = ativos.filter(p => !pag[p.id]);
+    const recMens = pagos.length * (finData.mensalidade || 25);
+    const recExtra = entradas.reduce((s, e) => s + e.valor, 0);
+    const desp = despesas.reduce((s, d) => s + d.valor, 0);
+    recMensTotal += recMens; recExtraTotal += recExtra; despTotalGeral += desp;
+    return { nomeMes, key, pagos, pendentes, recMens, recExtra, desp, saldo: recMens + recExtra - desp, entradas, despesas };
+  });
+
+  const saldoFinal = recMensTotal + recExtraTotal - despTotalGeral;
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Relatório Anual ${anoFiltro}</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 30px; color: #111; font-size: 13px; }
+    h1 { color: #1a7a3a; border-bottom: 2px solid #1a7a3a; padding-bottom: 8px; }
+    h2 { color: #145228; margin-top: 24px; font-size: 1rem; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    th { background: #145228; color: #fff; padding: 7px 10px; text-align: left; font-size: 0.85rem; }
+    td { padding: 6px 10px; border-bottom: 1px solid #eee; font-size: 0.82rem; }
+    tr:nth-child(even) td { background: #f5f5f5; }
+    .resumo { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
+    .box { border: 1px solid #ccc; border-radius: 8px; padding: 10px; text-align: center; }
+    .box-val { font-size: 1.2rem; font-weight: 900; }
+    .green { color: #1a7a3a; } .red { color: #cc0000; }
+    .footer { margin-top: 30px; font-size: 0.75rem; color: #888; border-top: 1px solid #ccc; padding-top: 8px; }
+    @media print { .no-print { display:none; } }
+  </style></head><body>
+  <h1>⚽ Pelada KF — Relatório Anual ${anoFiltro}</h1>
+  <p style="color:#555;margin-bottom:16px">Gerado em ${new Date().toLocaleString('pt-BR')}</p>
+
+  <div class="resumo">
+    <div class="box"><div class="box-val green">R$ ${recMensTotal.toFixed(2)}</div><div>Total Mensalidades</div></div>
+    <div class="box"><div class="box-val green">R$ ${recExtraTotal.toFixed(2)}</div><div>Total Entradas Avulsas</div></div>
+    <div class="box"><div class="box-val red">R$ ${despTotalGeral.toFixed(2)}</div><div>Total Despesas</div></div>
+    <div class="box"><div class="box-val ${saldoFinal >= 0 ? 'green' : 'red'}">R$ ${saldoFinal.toFixed(2)}</div><div>Saldo do Ano</div></div>
+  </div>
+
+  <h2>📅 Resumo por Mês</h2>
+  <table>
+    <tr><th>Mês</th><th>Mensalidades (R$)</th><th>Entradas Avulsas (R$)</th><th>Despesas (R$)</th><th>Saldo (R$)</th><th>Pagos / Total</th></tr>
+    ${mesesData.map(d => `<tr>
+      <td><strong>${d.nomeMes}</strong></td>
+      <td class="green">${d.recMens > 0 ? d.recMens.toFixed(2) : '-'}</td>
+      <td class="green">${d.recExtra > 0 ? '+' + d.recExtra.toFixed(2) : '-'}</td>
+      <td style="color:#cc0000">${d.desp > 0 ? d.desp.toFixed(2) : '-'}</td>
+      <td style="color:${d.saldo >= 0 ? '#1a7a3a' : '#cc0000'};font-weight:700">${(d.recMens + d.recExtra + d.desp) > 0 ? d.saldo.toFixed(2) : '-'}</td>
+      <td>${d.pagos.length}/${ativos.length}</td>
+    </tr>`).join('')}
+  </table>
+
+  <h2>👥 Situação por Jogador — ${anoFiltro}</h2>
+  <table>
+    <tr><th>Jogador</th>${NOMES_MESES.map(m => `<th>${m.slice(0,3)}</th>`).join('')}<th>Total Pago</th></tr>
+    ${ativos.sort((a,b) => a.nome.localeCompare(b.nome)).map(p => {
+      let total = 0;
+      const cells = NOMES_MESES.map((nm, idx) => {
+        const m = String(idx+1).padStart(2,'0');
+        const key = `${anoFiltro}-${m}`;
+        const inicioInt = p.mesInicio ? keyToInt(p.mesInicio) : 0;
+        const kInt = keyToInt(key);
+        if (inicioInt > 0 && kInt < inicioInt) return `<td style="color:#ccc;text-align:center">-</td>`;
+        const paid = !!((finData.pagamentos[key] || {})[p.id]);
+        if (paid) total += (finData.mensalidade || 25);
+        return `<td style="text-align:center;color:${paid ? '#1a7a3a' : '#cc0000'};font-weight:700">${paid ? '✓' : '·'}</td>`;
+      }).join('');
+      return `<tr><td><strong>${esc(p.nome)}</strong></td>${cells}<td style="color:#1a7a3a;font-weight:900">R$ ${total.toFixed(2)}</td></tr>`;
+    }).join('')}
+  </table>
+
+  <div class="footer">Controle de Pelada KF · Relatório Anual ${anoFiltro} · Gerado automaticamente</div>
+  </body></html>`);
+  win.document.close();
+  win.print();
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────
