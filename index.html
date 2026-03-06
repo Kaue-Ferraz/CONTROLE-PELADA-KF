@@ -228,6 +228,21 @@
       </div>
       <div class="nivel-hint">1=Fraco · 2=Regular · 3=Bom · 4=Muito bom · 5=Craque</div>
     </div>
+    <div style="margin-bottom:12px">
+      <div class="section-label">Mês de início da mensalidade</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <select id="input-mes-ref">
+          <option value="01">Janeiro</option><option value="02">Fevereiro</option>
+          <option value="03">Março</option><option value="04">Abril</option>
+          <option value="05">Maio</option><option value="06">Junho</option>
+          <option value="07">Julho</option><option value="08">Agosto</option>
+          <option value="09">Setembro</option><option value="10">Outubro</option>
+          <option value="11">Novembro</option><option value="12">Dezembro</option>
+        </select>
+        <input type="number" id="input-ano-ref" placeholder="Ano" min="2020" max="2099">
+      </div>
+      <div style="font-size:0.65rem;color:var(--text-muted);margin-top:4px">A pendência conta a partir deste mês</div>
+    </div>
     <button class="btn btn-green" onclick="addPlayer()">✚ ADICIONAR</button>
   </div>
 
@@ -375,51 +390,93 @@
 
   <!-- ── RESUMO ── -->
   <div class="fin-page" id="finpage-resumo">
-    <div class="card">
-      <div class="card-title">📊 Dashboard Financeiro</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-        <div>
+
+    <!-- Toggle Geral / Mensal -->
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <button id="btn-vis-geral" onclick="setVisaoResumo('geral')"
+        style="flex:1;padding:9px;border-radius:10px;border:1px solid var(--green);background:var(--green);color:#000;font-weight:900;font-size:0.82rem;cursor:pointer">
+        🌐 Visão Geral
+      </button>
+      <button id="btn-vis-mensal" onclick="setVisaoResumo('mensal')"
+        style="flex:1;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-weight:700;font-size:0.82rem;cursor:pointer">
+        📅 Por Mês
+      </button>
+    </div>
+
+    <!-- ── VISÃO GERAL ── -->
+    <div id="vis-geral">
+      <div class="card">
+        <div class="card-title">🌐 Totais Gerais — <span id="res-geral-ano" style="color:var(--gold)"></span></div>
+        <div style="margin-bottom:10px">
           <div class="section-label">Ano</div>
-          <input type="number" id="input-resumo-ano" placeholder="2025" min="2020" max="2099" oninput="renderResumo()">
+          <input type="number" id="input-resumo-ano-geral" placeholder="2025" min="2020" max="2099" oninput="renderResumoGeral()">
         </div>
-        <div>
-          <div class="section-label">Mês</div>
-          <select id="sel-mes-resumo" onchange="renderResumo()">
-            <option value="">Ano inteiro</option>
-            <option value="01">Janeiro</option><option value="02">Fevereiro</option>
-            <option value="03">Março</option><option value="04">Abril</option>
-            <option value="05">Maio</option><option value="06">Junho</option>
-            <option value="07">Julho</option><option value="08">Agosto</option>
-            <option value="09">Setembro</option><option value="10">Outubro</option>
-            <option value="11">Novembro</option><option value="12">Dezembro</option>
-          </select>
+        <div class="stat-grid">
+          <div class="stat-box green"><div class="stat-val green" id="res-g-receita">R$ 0</div><div class="stat-lbl">Receita Total</div></div>
+          <div class="stat-box red"><div class="stat-val red" id="res-g-despesa">R$ 0</div><div class="stat-lbl">Despesas Total</div></div>
+          <div class="stat-box gold" style="grid-column:1/-1"><div class="stat-val" id="res-g-saldo" style="font-size:2rem">R$ 0</div><div class="stat-lbl">💰 Saldo Final</div></div>
         </div>
       </div>
-      <div class="stat-grid">
-        <div class="stat-box green"><div class="stat-val green" id="res-receita">R$ 0</div><div class="stat-lbl">Receita</div></div>
-        <div class="stat-box red"><div class="stat-val red" id="res-despesa">R$ 0</div><div class="stat-lbl">Despesas</div></div>
-        <div class="stat-box gold"><div class="stat-val gold" id="res-saldo">R$ 0</div><div class="stat-lbl">Saldo</div></div>
-        <div class="stat-box blue"><div class="stat-val blue" id="res-inadimplentes">0</div><div class="stat-lbl">Pendentes</div></div>
-      </div>
-      <div class="section-label" style="margin-top:4px">Arrecadação do período</div>
-      <div class="resumo-bar"><div class="resumo-bar-fill" id="bar-arrecad" style="background:var(--green);width:0%"></div></div>
-      <div id="bar-label" style="font-size:0.72rem;color:var(--text-muted);text-align:right"></div>
-    </div>
 
-    <div class="card">
-      <div class="card-title">📋 Histórico por Mês</div>
-      <div id="historico-list">
-        <div class="empty-state"><div class="empty-icon">📂</div><div class="empty-text">Nenhum lançamento ainda.</div></div>
+      <div class="card">
+        <div class="card-title">👥 Pagamentos por Jogador</div>
+        <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:10px">Clique em um jogador para ver o histórico mês a mês</div>
+        <div id="jogador-pagamentos-list"></div>
+      </div>
+
+      <div class="card" style="border-color:var(--gold)">
+        <div class="card-title" style="color:var(--gold)">⚠️ Jogadores em Atraso</div>
+        <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:10px">Referência: mês atual do sistema</div>
+        <div id="atencao-list-geral"></div>
       </div>
     </div>
 
-    <div class="card" style="border-color:var(--gold)">
-      <div class="card-title" style="color:var(--gold)">⚠️ Jogadores em Atraso</div>
-      <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:10px">Referência: mês atual do sistema</div>
-      <div id="atencao-list">
-        <div style="font-size:0.85rem;color:var(--text-muted)">Nenhum jogador em atraso.</div>
+    <!-- ── VISÃO MENSAL ── -->
+    <div id="vis-mensal" style="display:none">
+      <div class="card">
+        <div class="card-title">📅 Dashboard Mensal</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+          <div>
+            <div class="section-label">Ano</div>
+            <input type="number" id="input-resumo-ano" placeholder="2025" min="2020" max="2099" oninput="renderResumo()">
+          </div>
+          <div>
+            <div class="section-label">Mês</div>
+            <select id="sel-mes-resumo" onchange="renderResumo()">
+              <option value="01">Janeiro</option><option value="02">Fevereiro</option>
+              <option value="03">Março</option><option value="04">Abril</option>
+              <option value="05">Maio</option><option value="06">Junho</option>
+              <option value="07">Julho</option><option value="08">Agosto</option>
+              <option value="09">Setembro</option><option value="10">Outubro</option>
+              <option value="11">Novembro</option><option value="12">Dezembro</option>
+            </select>
+          </div>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-box green"><div class="stat-val green" id="res-receita">R$ 0</div><div class="stat-lbl">Receita</div></div>
+          <div class="stat-box red"><div class="stat-val red" id="res-despesa">R$ 0</div><div class="stat-lbl">Despesas</div></div>
+          <div class="stat-box gold"><div class="stat-val gold" id="res-saldo">R$ 0</div><div class="stat-lbl">Saldo</div></div>
+          <div class="stat-box blue"><div class="stat-val blue" id="res-inadimplentes">0</div><div class="stat-lbl">Pendentes</div></div>
+        </div>
+        <div class="section-label" style="margin-top:4px">Arrecadação do mês</div>
+        <div class="resumo-bar"><div class="resumo-bar-fill" id="bar-arrecad" style="background:var(--green);width:0%"></div></div>
+        <div id="bar-label" style="font-size:0.72rem;color:var(--text-muted);text-align:right"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📋 Histórico por Mês</div>
+        <div id="historico-list">
+          <div class="empty-state"><div class="empty-icon">📂</div><div class="empty-text">Nenhum lançamento ainda.</div></div>
+        </div>
+      </div>
+
+      <div class="card" style="border-color:var(--gold)">
+        <div class="card-title" style="color:var(--gold)">⚠️ Jogadores em Atraso</div>
+        <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:10px">Referência: mês atual do sistema</div>
+        <div id="atencao-list"></div>
       </div>
     </div>
+
   </div>
 
 </div>
@@ -509,7 +566,10 @@ async function addPlayer() {
   const nome = input.value.trim();
   if (!nome) { toast('Digite o nome!'); return; }
   if (players.find(p => p.nome.toLowerCase() === nome.toLowerCase())) { toast('Jogador já cadastrado!'); return; }
-  players.push({ id: Date.now(), nome, nivel: selectedNivel, presente: false });
+  const mesRef = document.getElementById('input-mes-ref').value;
+  const anoRef = parseInt(document.getElementById('input-ano-ref').value) || anoSistema();
+  const mesInicio = anoRef + '-' + mesRef; // 'YYYY-MM'
+  players.push({ id: Date.now(), nome, nivel: selectedNivel, presente: false, mesInicio });
   await saveData();
   input.value = '';
   input.focus();
@@ -528,15 +588,21 @@ function renderPlayers() {
     return;
   }
   const sorted = [...players].sort((a, b) => b.nivel - a.nivel);
-  list.innerHTML = sorted.map(p => `
+  list.innerHTML = sorted.map(p => {
+    const [aRef, mRef] = (p.mesInicio || '').split('-');
+    const refLabel = (aRef && mRef) ? `<div style="font-size:0.65rem;color:var(--text-muted)">📅 Desde ${NOMES_MESES[parseInt(mRef)-1]} ${aRef}</div>` : '';
+    return `
     <div class="player-item">
       <div class="nivel-badge n${p.nivel}">${p.nivel}</div>
-      <div class="player-name">${esc(p.nome)}</div>
+      <div style="flex:1">
+        <div class="player-name">${esc(p.nome)}</div>
+        ${refLabel}
+      </div>
       <div class="stars">${'★'.repeat(p.nivel)}${'☆'.repeat(5-p.nivel)}</div>
       <button class="del-btn" onclick="editNivel(${p.id})">✏️</button>
       <button class="del-btn" onclick="deletePlayer(${p.id})">✕</button>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 async function editNivel(id) {
@@ -764,24 +830,40 @@ function mesKey(ano, mes) {
   return ano + '-' + String(mes).padStart(2,'0');
 }
 
-// Ano atual do sistema real
+// Converte 'YYYY-MM' para número inteiro YYYYMM para comparação
+function keyToInt(key) {
+  const [a, m] = key.split('-');
+  return parseInt(a) * 100 + parseInt(m);
+}
+
+// Ano/mês atual do sistema real
 function anoSistema() { return new Date().getFullYear(); }
 function mesSistema()  { return new Date().getMonth() + 1; }
+function keyAtual()    { return mesKey(anoSistema(), mesSistema()); }
 
-// ── Quantos meses o jogador está em atraso em relação ao mês atual do sistema ──
-// Regra: conta meses NÃO pagos consecutivos antes do mês atual (excluindo o mês atual)
-function mesesEmAtraso(playerId) {
+// ── Quantos meses em atraso levando em conta o mesInicio do jogador ──
+// Regra: conta meses NÃO pagos desde mesInicio até 2 meses ANTES do mês atual.
+// Se o jogador não tiver mesInicio definido, não tem pendência (só Pendente).
+// Alerta (⚠️) só aparece se tiver 2+ meses em atraso.
+function mesesEmAtraso(player) {
+  if (!player.mesInicio) return 0; // sem data de início = sem pendência
+
   const anoRef = anoSistema();
   const mesRef  = mesSistema();
+  const inicioInt = keyToInt(player.mesInicio);
+  const atualInt  = keyToInt(keyAtual());
+
+  // Não considera o mês atual — avalia apenas os meses anteriores
   let atraso = 0;
-  // Verifica os últimos 24 meses anteriores ao mês atual
-  for (let i = 1; i <= 24; i++) {
+  for (let i = 1; i <= 36; i++) {
     let m = mesRef - i;
     let a = anoRef;
     while (m <= 0) { m += 12; a--; }
-    const key = mesKey(a, m);
-    const pag = finData.pagamentos[key] || {};
-    if (pag[playerId]) break; // achou pagamento, para
+    const k = mesKey(a, m);
+    const kInt = keyToInt(k);
+    if (kInt < inicioInt) break; // não cobra antes do mês de início
+    const pag = finData.pagamentos[k] || {};
+    if (pag[player.id]) break; // achou pagamento, para
     atraso++;
   }
   return atraso;
@@ -806,6 +888,14 @@ function initFinanceiro() {
   // Preenche resumo
   document.getElementById('input-resumo-ano').value = finData.ano || anoAtual;
   document.getElementById('sel-mes-resumo').value = String(mesAtual).padStart(2,'0');
+  const inputGeralAno = document.getElementById('input-resumo-ano-geral');
+  if (inputGeralAno) inputGeralAno.value = finData.ano || anoAtual;
+
+  // Preenche mês/ano de referência do form de jogadores (se disponível)
+  const inputMesRef = document.getElementById('input-mes-ref');
+  const inputAnoRef = document.getElementById('input-ano-ref');
+  if (inputMesRef) inputMesRef.value = String(mesAtual).padStart(2,'0');
+  if (inputAnoRef) inputAnoRef.value = anoAtual;
 
   // Garante mês selecionado válido
   mesPagSelecionado = mesAtual;
@@ -813,6 +903,7 @@ function initFinanceiro() {
   renderBotoesMeses();
   renderMensalidades();
   renderDespesas();
+  renderResumoGeral();
   renderResumo();
 }
 
@@ -850,12 +941,18 @@ function renderBotoesMeses() {
   if (!container) return;
   container.innerHTML = NOMES_MESES.map((nome, idx) => {
     const m = idx + 1;
-    const ativo = m === mesPagSelecionado ? 'style="background:var(--green);color:#000;border-color:var(--green);font-weight:900"' : '';
+    const sel = m === mesPagSelecionado;
+    const bg     = sel ? 'var(--green)'    : 'var(--surface2)';
+    const cor    = sel ? '#000'            : 'var(--text-muted)';
+    const border = sel ? 'var(--green)'    : 'var(--border)';
+    const fw     = sel ? '900'             : '700';
+    const shadow = sel ? '0 0 8px #1db95466' : 'none';
     return `<button onclick="selecionarMesPag(${m})"
-      style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);
-             background:var(--surface2);color:var(--text-muted);cursor:pointer;
-             font-family:Nunito,sans-serif;font-size:0.78rem;font-weight:700;transition:all .15s"
-      ${ativo}>${nome.slice(0,3)}</button>`;
+      style="padding:8px 6px;border-radius:8px;border:2px solid ${border};
+             background:${bg};color:${cor};cursor:pointer;
+             font-family:Nunito,sans-serif;font-size:0.8rem;font-weight:${fw};
+             transition:all .15s;box-shadow:${shadow};min-width:44px">
+      ${nome.slice(0,3)}</button>`;
   }).join('');
 }
 
@@ -905,7 +1002,7 @@ function renderMensalidades() {
     </div>
     ` + sorted.map(p => {
     const paid = !!pag[p.id];
-    const atraso = mesesEmAtraso(p.id);
+    const atraso = mesesEmAtraso(p);
     // Alerta se NÃO pagou o mês visualizado E tem 2+ meses em atraso (contando do mês atual do sistema)
     const isAtencao = !paid && atraso >= 2;
     const cls = paid ? 'pago' : (isAtencao ? 'atencao' : '');
@@ -1018,52 +1115,121 @@ function renderDespesas() {
   totalEl.textContent = total > 0 ? `Total: R$ ${total.toFixed(2)}` : '';
 }
 
-// ── RESUMO ──
-function renderResumo() {
-  const anoFiltro = parseInt(document.getElementById('input-resumo-ano')?.value) || (finData.ano || anoSistema());
-  const mesFiltro = document.getElementById('sel-mes-resumo')?.value || '';
+// ── VISÃO RESUMO ──
+let visaoResumo = 'geral';
 
-  // Monta lista de chaves a considerar
-  function chavesBate(key) {
-    const [a, m] = key.split('-');
-    const aBate = parseInt(a) === anoFiltro;
-    const mBate = !mesFiltro || m === mesFiltro;
-    return aBate && mBate;
-  }
+function setVisaoResumo(v) {
+  visaoResumo = v;
+  document.getElementById('vis-geral').style.display  = v === 'geral'  ? 'block' : 'none';
+  document.getElementById('vis-mensal').style.display = v === 'mensal' ? 'block' : 'none';
+  const btnG = document.getElementById('btn-vis-geral');
+  const btnM = document.getElementById('btn-vis-mensal');
+  btnG.style.background = v === 'geral'  ? 'var(--green)' : 'var(--surface2)';
+  btnG.style.color       = v === 'geral'  ? '#000' : 'var(--text-muted)';
+  btnG.style.borderColor = v === 'geral'  ? 'var(--green)' : 'var(--border)';
+  btnM.style.background  = v === 'mensal' ? 'var(--green)' : 'var(--surface2)';
+  btnM.style.color        = v === 'mensal' ? '#000' : 'var(--text-muted)';
+  btnM.style.borderColor  = v === 'mensal' ? 'var(--green)' : 'var(--border)';
+  if (v === 'geral')  renderResumoGeral();
+  if (v === 'mensal') renderResumo();
+}
 
-  // Receita: soma pagamentos nas chaves filtradas
-  let receita = 0;
-  let totalPagosContados = 0;
+// ── RESUMO GERAL (ano inteiro) ──
+function renderResumoGeral() {
+  const anoFiltro = parseInt(document.getElementById('input-resumo-ano-geral')?.value) || (finData.ano || anoSistema());
+  const elAno = document.getElementById('res-geral-ano');
+  if (elAno) elAno.textContent = anoFiltro;
+
+  let receita = 0, despTotal = 0;
   Object.keys(finData.pagamentos).forEach(key => {
-    if (!chavesBate(key)) return;
-    const pagos = Object.values(finData.pagamentos[key]).filter(Boolean).length;
-    totalPagosContados += pagos;
-    receita += pagos * (finData.mensalidade || 25);
+    if (!key.startsWith(anoFiltro + '-')) return;
+    receita += Object.values(finData.pagamentos[key]).filter(Boolean).length * (finData.mensalidade || 25);
   });
-
-  // Despesas: soma nas chaves filtradas
-  let despTotal = 0;
   Object.keys(finData.despesas).forEach(key => {
-    if (!chavesBate(key)) return;
+    if (!key.startsWith(anoFiltro + '-')) return;
     despTotal += (finData.despesas[key] || []).reduce((s,d) => s + d.valor, 0);
   });
 
   const saldo = receita - despTotal;
+  document.getElementById('res-g-receita').textContent = 'R$ ' + receita.toFixed(2);
+  document.getElementById('res-g-despesa').textContent = 'R$ ' + despTotal.toFixed(2);
+  const salEl = document.getElementById('res-g-saldo');
+  salEl.textContent = 'R$ ' + saldo.toFixed(2);
+  salEl.style.color = saldo >= 0 ? 'var(--green)' : 'var(--red)';
 
-  // Pendentes: jogadores sem pagamento no(s) mês(es) filtrado(s)
-  // Se mês específico selecionado, conta jogadores sem pagamento naquele mês
-  // Se ano inteiro, usa o mês atual do sistema como referência
-  let pendentes = 0;
-  if (mesFiltro) {
-    const key = anoFiltro + '-' + mesFiltro;
-    const pag = finData.pagamentos[key] || {};
-    pendentes = players.filter(p => !pag[p.id]).length;
-  } else {
-    // Sem filtro de mês: usa mês atual do sistema
-    const keyAtual = mesKey(anoSistema(), mesSistema());
-    const pag = finData.pagamentos[keyAtual] || {};
-    pendentes = players.filter(p => !pag[p.id]).length;
+  renderJogadorPagamentos(anoFiltro);
+  renderAtencaoListEl('atencao-list-geral');
+}
+
+// ── Tabela jogadores × meses clicável ──
+function renderJogadorPagamentos(ano) {
+  const el = document.getElementById('jogador-pagamentos-list');
+  if (!el || players.length === 0) {
+    if (el) el.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:0.85rem">Nenhum jogador cadastrado.</div>`;
+    return;
   }
+  const sorted = [...players].sort((a,b) => a.nome.localeCompare(b.nome));
+  let html = '';
+  sorted.forEach(p => {
+    const atraso = mesesEmAtraso(p);
+    const inicioInt = p.mesInicio ? keyToInt(p.mesInicio) : 0;
+    const mesesHtml = NOMES_MESES.map((nome, idx) => {
+      const m = idx + 1;
+      const key = mesKey(ano, m);
+      const kInt = keyToInt(key);
+      const ativo = inicioInt > 0 && kInt >= inicioInt;
+      if (!ativo) {
+        return `<div style="padding:3px 5px;border-radius:6px;background:#111;color:#333;font-size:0.62rem;text-align:center;font-weight:700">${nome.slice(0,3)}</div>`;
+      }
+      const paid = !!(finData.pagamentos[key] || {})[p.id];
+      const bg  = paid ? '#0d3b1e' : '#2a1200';
+      const cor = paid ? 'var(--green)' : '#ff6b35';
+      const icon = paid ? '✓' : '·';
+      return `<div onclick="togglePagamentoMes(${p.id},'${key}')"
+        style="padding:3px 5px;border-radius:6px;background:${bg};color:${cor};font-size:0.62rem;text-align:center;font-weight:700;cursor:pointer;border:1px solid ${cor}60">
+        ${nome.slice(0,3)}<br>${icon}</div>`;
+    }).join('');
+    html += `
+      <div style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <div class="nivel-badge n${p.nivel}">${p.nivel}</div>
+          <div style="flex:1;font-weight:700;font-size:0.9rem">${esc(p.nome)}</div>
+          ${atraso >= 2 ? `<span class="fin-badge badge-atencao">⚠️ ${atraso}m</span>` : ''}
+          ${p.mesInicio ? `<span style="font-size:0.62rem;color:var(--text-muted)">desde ${p.mesInicio}</span>` : ''}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px">${mesesHtml}</div>
+      </div>`;
+  });
+  el.innerHTML = html;
+}
+
+async function togglePagamentoMes(playerId, key) {
+  if (!finData.pagamentos[key]) finData.pagamentos[key] = {};
+  if (finData.pagamentos[key][playerId]) {
+    delete finData.pagamentos[key][playerId];
+    toast('❌ Pagamento removido');
+  } else {
+    finData.pagamentos[key][playerId] = true;
+    toast('✅ Pagamento registrado!');
+  }
+  await saveFinData();
+  renderResumoGeral();
+  renderMensalidades();
+}
+
+// ── RESUMO MENSAL ──
+function renderResumo() {
+  const anoFiltro = parseInt(document.getElementById('input-resumo-ano')?.value) || (finData.ano || anoSistema());
+  const mesFiltro = document.getElementById('sel-mes-resumo')?.value || String(mesSistema()).padStart(2,'0');
+  const key = anoFiltro + '-' + mesFiltro;
+
+  const pag = finData.pagamentos[key] || {};
+  const pagos = Object.values(pag).filter(Boolean).length;
+  const receita = pagos * (finData.mensalidade || 25);
+  const desps = finData.despesas[key] || [];
+  const despTotal = desps.reduce((s,d) => s + d.valor, 0);
+  const saldo = receita - despTotal;
+  const pendentes = players.filter(p => !pag[p.id]).length;
 
   document.getElementById('res-receita').textContent = 'R$ ' + receita.toFixed(2);
   document.getElementById('res-despesa').textContent = 'R$ ' + despTotal.toFixed(2);
@@ -1071,22 +1237,19 @@ function renderResumo() {
   document.getElementById('res-saldo').style.color   = saldo >= 0 ? 'var(--green)' : 'var(--red)';
   document.getElementById('res-inadimplentes').textContent = pendentes;
 
-  // Barra arrecadação
-  const mesesNoFiltro = mesFiltro ? 1 : 12;
-  const esperado = players.length * (finData.mensalidade || 25) * mesesNoFiltro;
+  const esperado = players.length * (finData.mensalidade || 25);
   const pct = esperado > 0 ? Math.min(100, (receita / esperado) * 100) : 0;
   document.getElementById('bar-arrecad').style.width = pct + '%';
   document.getElementById('bar-label').textContent   = `R$ ${receita.toFixed(2)} de R$ ${esperado.toFixed(2)} esperados (${Math.round(pct)}%)`;
 
   renderHistorico(anoFiltro);
-  renderAtencaoList();
+  renderAtencaoListEl('atencao-list');
 }
 
 function renderHistorico(anoFiltro) {
   const el = document.getElementById('historico-list');
   if (!el) return;
 
-  // Coleta todos os meses do ano filtrado que têm dados
   const todasChaves = new Set([
     ...Object.keys(finData.pagamentos),
     ...Object.keys(finData.despesas)
@@ -1101,7 +1264,7 @@ function renderHistorico(anoFiltro) {
     return;
   }
 
-  const rows = chavesFiltradas.map(key => {
+  el.innerHTML = chavesFiltradas.map(key => {
     const [a, m] = key.split('-');
     const pag = finData.pagamentos[key] || {};
     const pagos = Object.values(pag).filter(Boolean).length;
@@ -1113,7 +1276,7 @@ function renderHistorico(anoFiltro) {
       <div class="month-history-item">
         <div>
           <div style="font-weight:700;font-size:0.88rem">${nomeMes} ${a}</div>
-          <div style="font-size:0.7rem;color:var(--text-muted)">${pagos}/${players.length} pagamento(s)</div>
+          <div style="font-size:0.7rem;color:var(--text-muted)">${pagos}/${players.length} pago(s)</div>
         </div>
         <div style="text-align:right">
           <div style="font-size:0.8rem;color:var(--green)">+R$ ${rec.toFixed(2)}</div>
@@ -1122,18 +1285,15 @@ function renderHistorico(anoFiltro) {
         </div>
       </div>`;
   }).join('');
-
-  el.innerHTML = rows;
 }
 
-function renderAtencaoList() {
-  const el = document.getElementById('atencao-list');
+function renderAtencaoListEl(elId) {
+  const el = document.getElementById(elId);
   if (!el) return;
   const lista = players
-    .map(p => ({ p, atraso: mesesEmAtraso(p.id) }))
+    .map(p => ({ p, atraso: mesesEmAtraso(p) }))
     .filter(x => x.atraso >= 2)
     .sort((a,b) => b.atraso - a.atraso);
-
   if (lista.length === 0) {
     el.innerHTML = `<div style="font-size:0.85rem;color:var(--text-muted)">✅ Nenhum jogador em atraso!</div>`;
     return;
@@ -1164,6 +1324,11 @@ function toast(msg) {
   await loadData();
   await loadFinData();
   selectNivel(3);
+  // Pre-fill mes de referência no cadastro com mês/ano atual
+  const mesRefEl = document.getElementById('input-mes-ref');
+  const anoRefEl = document.getElementById('input-ano-ref');
+  if (mesRefEl) mesRefEl.value = String(mesSistema()).padStart(2,'0');
+  if (anoRefEl) anoRefEl.value = anoSistema();
   renderPlayers();
   document.getElementById('loading').classList.add('hidden');
 })();
