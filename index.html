@@ -135,6 +135,56 @@
 
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--green); color: #000; padding: 10px 22px; border-radius: 30px; font-weight: 700; font-size: 0.9rem; z-index: 9999; transition: transform .3s ease; white-space: nowrap; }
   .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ── FINANCEIRO ─────────────────────────────── */
+  .fin-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+  .fin-tab { flex: 1; padding: 9px 6px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); font-weight: 700; font-size: 0.75rem; text-align: center; cursor: pointer; transition: all .2s; text-transform: uppercase; letter-spacing: .5px; }
+  .fin-tab.active { background: var(--green); color: #000; border-color: var(--green); }
+
+  .fin-page { display: none; }
+  .fin-page.active { display: block; }
+
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .stat-box { background: var(--surface2); border-radius: var(--radius-sm); padding: 14px 12px; border: 1px solid var(--border); text-align: center; }
+  .stat-box.green { border-color: var(--green); }
+  .stat-box.red { border-color: var(--red); }
+  .stat-box.gold { border-color: var(--gold); }
+  .stat-box.blue { border-color: var(--blue); }
+  .stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; line-height: 1; }
+  .stat-val.green { color: var(--green); }
+  .stat-val.red { color: var(--red); }
+  .stat-val.gold { color: var(--gold); }
+  .stat-val.blue { color: var(--blue); }
+  .stat-lbl { font-size: 0.62rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-top: 3px; }
+
+  .month-select-row { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+  .month-select-row select { flex: 1; }
+
+  .player-fin-item { display: flex; align-items: center; gap: 10px; background: var(--surface2); border-radius: var(--radius-sm); padding: 10px 12px; border: 2px solid var(--border); margin-bottom: 7px; cursor: pointer; transition: all .15s; }
+  .player-fin-item.pago { border-color: var(--green); background: #0d2e14; }
+  .player-fin-item.atencao { border-color: var(--gold); background: #2a1a00; }
+  .fin-check { width: 28px; height: 28px; border-radius: 50%; border: 2px solid #444; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0; }
+  .player-fin-item.pago .fin-check { background: var(--green); border-color: var(--green); color: #000; }
+  .player-fin-item.atencao .fin-check { background: var(--gold); border-color: var(--gold); color: #000; }
+  .fin-name { flex: 1; font-weight: 700; font-size: 0.9rem; }
+  .fin-badge { font-size: 0.65rem; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+  .badge-pago { background: #0d3b1e; color: var(--green); }
+  .badge-pendente { background: #3b2200; color: var(--gold); }
+  .badge-atencao { background: #4a1a00; color: #ff6b35; }
+
+  .desp-item { display: flex; align-items: center; gap: 10px; background: var(--surface2); border-radius: var(--radius-sm); padding: 10px 12px; border: 1px solid var(--border); margin-bottom: 7px; }
+  .desp-desc { flex: 1; font-size: 0.9rem; font-weight: 600; }
+  .desp-val { font-weight: 900; color: var(--red); font-size: 0.9rem; }
+  .desp-del { background: none; border: none; color: #555; cursor: pointer; font-size: 1rem; padding: 4px; }
+  .desp-del:active { color: var(--red); }
+
+  .resumo-bar { height: 14px; border-radius: 10px; background: var(--surface2); overflow: hidden; margin: 8px 0 4px; }
+  .resumo-bar-fill { height: 100%; border-radius: 10px; transition: width .5s ease; }
+
+  .month-history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--surface2); border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 7px; }
+
+  .cfg-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 10px; }
+  .cfg-row input { flex: 1; }
 </style>
 </head>
 <body>
@@ -156,6 +206,7 @@
   <div class="tab active" onclick="showTab('jogadores')"><span class="tab-icon">👥</span>JOGADORES</div>
   <div class="tab" onclick="showTab('presenca')"><span class="tab-icon">✅</span>PRESENÇA</div>
   <div class="tab" onclick="showTab('times')"><span class="tab-icon">🎲</span>TIMES</div>
+  <div class="tab" onclick="showTab('financeiro')"><span class="tab-icon">💰</span>CAIXA</div>
 </div>
 
 <!-- JOGADORES -->
@@ -215,6 +266,110 @@
   <div id="times-result">
     <div class="empty-state"><div class="empty-icon">⚽</div><div class="empty-text">Clique em <strong>Sortear Agora</strong><br>para gerar os times!</div></div>
   </div>
+</div>
+
+<!-- FINANCEIRO -->
+<div class="page" id="page-financeiro">
+
+  <!-- Sub-tabs financeiro -->
+  <div class="fin-tabs">
+    <div class="fin-tab active" onclick="showFinTab('mensalidades')">💳 Mensalidades</div>
+    <div class="fin-tab" onclick="showFinTab('despesas')">🧾 Despesas</div>
+    <div class="fin-tab" onclick="showFinTab('resumo')">📊 Resumo</div>
+  </div>
+
+  <!-- ── MENSALIDADES ── -->
+  <div class="fin-page active" id="finpage-mensalidades">
+    <div class="card">
+      <div class="card-title">⚙️ Configuração</div>
+      <div class="section-label">Valor da mensalidade (R$)</div>
+      <div class="cfg-row">
+        <input type="number" id="input-mensalidade" placeholder="25.00" step="0.01" min="0" value="">
+        <button class="btn btn-green btn-sm" onclick="salvarMensalidade()" style="white-space:nowrap;width:auto;padding:10px 16px">💾 Salvar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📅 Pagamentos por Mês</div>
+      <div class="month-select-row">
+        <select id="sel-mes-pag" onchange="renderMensalidades()"></select>
+      </div>
+      <div id="fin-player-list">
+        <div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">Cadastre jogadores na aba Jogadores!</div></div>
+      </div>
+    </div>
+
+    <div class="card" style="border-color:#1a1a1a">
+      <div style="font-size:0.72rem;color:var(--text-muted);line-height:1.7">
+        ✅ <strong style="color:var(--green)">Pago</strong> — mensalidade quitada no mês<br>
+        ⚠️ <strong style="color:var(--gold)">Atenção</strong> — 2+ meses em atraso<br>
+        ⏳ <strong style="color:#888">Pendente</strong> — ainda não pagou
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DESPESAS ── -->
+  <div class="fin-page" id="finpage-despesas">
+    <div class="card">
+      <div class="card-title">➕ Registrar Despesa</div>
+      <div style="margin-bottom:10px">
+        <div class="section-label">Mês de referência</div>
+        <select id="sel-mes-desp"></select>
+      </div>
+      <div style="margin-bottom:10px">
+        <div class="section-label">Descrição</div>
+        <input type="text" id="input-desp-desc" placeholder="Ex: Aluguel do campo, bola nova..." maxlength="50">
+      </div>
+      <div style="margin-bottom:12px">
+        <div class="section-label">Valor (R$)</div>
+        <input type="number" id="input-desp-val" placeholder="0.00" step="0.01" min="0">
+      </div>
+      <button class="btn btn-green" onclick="addDespesa()">✚ ADICIONAR DESPESA</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🧾 Despesas do Mês</div>
+      <div class="month-select-row">
+        <select id="sel-mes-desp-view" onchange="renderDespesas()"></select>
+      </div>
+      <div id="desp-list"></div>
+      <div id="desp-total" style="text-align:right; margin-top:8px; font-size:0.85rem; color:var(--red); font-weight:700;"></div>
+    </div>
+  </div>
+
+  <!-- ── RESUMO ── -->
+  <div class="fin-page" id="finpage-resumo">
+    <div class="card">
+      <div class="card-title">📊 Dashboard Financeiro</div>
+      <div class="month-select-row">
+        <select id="sel-mes-resumo" onchange="renderResumo()"></select>
+      </div>
+      <div class="stat-grid" id="resumo-stats">
+        <div class="stat-box green"><div class="stat-val green" id="res-receita">R$ 0</div><div class="stat-lbl">Receita</div></div>
+        <div class="stat-box red"><div class="stat-val red" id="res-despesa">R$ 0</div><div class="stat-lbl">Despesas</div></div>
+        <div class="stat-box gold"><div class="stat-val gold" id="res-saldo">R$ 0</div><div class="stat-lbl">Saldo</div></div>
+        <div class="stat-box blue"><div class="stat-val blue" id="res-inadimplentes">0</div><div class="stat-lbl">Pendentes</div></div>
+      </div>
+      <div class="section-label" style="margin-top:4px">Arrecadação do mês</div>
+      <div class="resumo-bar"><div class="resumo-bar-fill" id="bar-arrecad" style="background:var(--green);width:0%"></div></div>
+      <div id="bar-label" style="font-size:0.72rem;color:var(--text-muted);text-align:right"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 Histórico Geral</div>
+      <div id="historico-list">
+        <div class="empty-state"><div class="empty-icon">📂</div><div class="empty-text">Nenhum lançamento ainda.</div></div>
+      </div>
+    </div>
+
+    <div class="card" style="border-color:var(--red)">
+      <div class="card-title" style="color:var(--gold)">⚠️ Jogadores em Atraso</div>
+      <div id="atencao-list">
+        <div style="font-size:0.85rem;color:var(--text-muted)">Nenhum jogador em atraso.</div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <div class="toast" id="toast"></div>
@@ -280,10 +435,11 @@ function showTab(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
-  const idx = ['jogadores','presenca','times'].indexOf(name);
+  const idx = ['jogadores','presenca','times','financeiro'].indexOf(name);
   document.querySelectorAll('.tab')[idx].classList.add('active');
   if (name === 'presenca') renderPresence();
   if (name === 'times') updateSortInfo();
+  if (name === 'financeiro') initFinanceiro();
 }
 
 // ─── NIVEL SELECTOR ───────────────────────────────────────────────────────
@@ -516,6 +672,287 @@ function renderTimes(grupos, temIncompleto = false) {
   toast('🎲 Times sorteados!');
 }
 
+// ─── FINANCEIRO ───────────────────────────────────────────────────────────
+const FIN_KEY = 'pelada_kf_financeiro';
+let finData = {
+  mensalidade: 25,
+  pagamentos: {},   // { 'YYYY-MM': { playerId: true/false } }
+  despesas: {}      // { 'YYYY-MM': [ {id, desc, valor} ] }
+};
+
+async function loadFinData() {
+  try {
+    const saved = await storageGet(FIN_KEY);
+    if (saved) finData = { ...finData, ...JSON.parse(saved) };
+  } catch(e) {}
+}
+
+async function saveFinData() {
+  try {
+    await storageSet(FIN_KEY, JSON.stringify(finData));
+    setSaveIndicator('saved', '✅ Salvo!');
+    setTimeout(() => setSaveIndicator('',''), 2000);
+  } catch(e) {
+    setSaveIndicator('error', '❌ Erro ao salvar');
+  }
+}
+
+function getMeses() {
+  const meses = [];
+  const hoje = new Date();
+  for (let i = 11; i >= -2; i--) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    const label = d.toLocaleDateString('pt-BR', {month: 'long', year: 'numeric'});
+    meses.push({key, label: label.charAt(0).toUpperCase() + label.slice(1)});
+  }
+  return meses;
+}
+
+function getMesAtual() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+
+function populateSelects() {
+  const meses = getMeses();
+  const mesAtual = getMesAtual();
+  ['sel-mes-pag','sel-mes-desp','sel-mes-desp-view','sel-mes-resumo'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const cur = sel.value || mesAtual;
+    sel.innerHTML = meses.map(m =>
+      `<option value="${m.key}" ${m.key === cur ? 'selected' : ''}>${m.label}</option>`
+    ).join('');
+    if (!sel.value) sel.value = mesAtual;
+  });
+}
+
+function initFinanceiro() {
+  populateSelects();
+  document.getElementById('input-mensalidade').value = finData.mensalidade || 25;
+  renderMensalidades();
+  renderDespesas();
+  renderResumo();
+}
+
+function showFinTab(name) {
+  document.querySelectorAll('.fin-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.fin-page').forEach(p => p.classList.remove('active'));
+  document.getElementById('finpage-' + name).classList.add('active');
+  const tabs = document.querySelectorAll('.fin-tab');
+  const idx = ['mensalidades','despesas','resumo'].indexOf(name);
+  tabs[idx].classList.add('active');
+  if (name === 'mensalidades') renderMensalidades();
+  if (name === 'despesas') renderDespesas();
+  if (name === 'resumo') renderResumo();
+}
+
+async function salvarMensalidade() {
+  const val = parseFloat(document.getElementById('input-mensalidade').value);
+  if (isNaN(val) || val <= 0) { toast('Informe um valor válido!'); return; }
+  finData.mensalidade = val;
+  await saveFinData();
+  toast('💰 Mensalidade: R$ ' + val.toFixed(2));
+  renderMensalidades();
+  renderResumo();
+}
+
+// Conta quantos meses consecutivos o jogador está em atraso
+function mesesEmAtraso(playerId) {
+  const hoje = new Date();
+  let atraso = 0;
+  for (let i = 1; i <= 12; i++) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    const pag = finData.pagamentos[key] || {};
+    if (pag[playerId]) break; // pagou, para de contar
+    atraso++;
+    if (atraso >= 12) break;
+  }
+  return atraso;
+}
+
+function renderMensalidades() {
+  const mes = document.getElementById('sel-mes-pag')?.value || getMesAtual();
+  const list = document.getElementById('fin-player-list');
+  if (!list) return;
+
+  if (players.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">Cadastre jogadores na aba Jogadores!</div></div>`;
+    return;
+  }
+
+  const pag = finData.pagamentos[mes] || {};
+  const sorted = [...players].sort((a,b) => a.nome.localeCompare(b.nome));
+
+  list.innerHTML = sorted.map(p => {
+    const paid = !!pag[p.id];
+    const atraso = paid ? 0 : mesesEmAtraso(p.id);
+    const isAtencao = !paid && atraso >= 2;
+    let cls = paid ? 'pago' : (isAtencao ? 'atencao' : '');
+    let icon = paid ? '✓' : (isAtencao ? '⚠' : '');
+    let badge = paid
+      ? `<span class="fin-badge badge-pago">✅ Pago</span>`
+      : isAtencao
+        ? `<span class="fin-badge badge-atencao">⚠️ ${atraso}m atraso</span>`
+        : `<span class="fin-badge badge-pendente">⏳ Pendente</span>`;
+    return `
+      <div class="player-fin-item ${cls}" onclick="togglePagamento(${p.id})">
+        <div class="fin-check">${icon}</div>
+        <div class="fin-name">${esc(p.nome)}</div>
+        ${badge}
+      </div>`;
+  }).join('');
+}
+
+async function togglePagamento(playerId) {
+  const mes = document.getElementById('sel-mes-pag')?.value || getMesAtual();
+  if (!finData.pagamentos[mes]) finData.pagamentos[mes] = {};
+  const atual = finData.pagamentos[mes][playerId];
+  if (atual) {
+    delete finData.pagamentos[mes][playerId];
+    toast('❌ Pagamento removido');
+  } else {
+    finData.pagamentos[mes][playerId] = true;
+    toast('✅ Pagamento registrado!');
+  }
+  await saveFinData();
+  renderMensalidades();
+  renderResumo();
+}
+
+// ── DESPESAS ──
+async function addDespesa() {
+  const mes = document.getElementById('sel-mes-desp')?.value || getMesAtual();
+  const desc = document.getElementById('input-desp-desc').value.trim();
+  const val = parseFloat(document.getElementById('input-desp-val').value);
+  if (!desc) { toast('Informe a descrição!'); return; }
+  if (isNaN(val) || val <= 0) { toast('Informe um valor válido!'); return; }
+  if (!finData.despesas[mes]) finData.despesas[mes] = [];
+  finData.despesas[mes].push({ id: Date.now(), desc, valor: val });
+  await saveFinData();
+  document.getElementById('input-desp-desc').value = '';
+  document.getElementById('input-desp-val').value = '';
+  // sync view select
+  document.getElementById('sel-mes-desp-view').value = mes;
+  renderDespesas();
+  renderResumo();
+  toast('🧾 Despesa adicionada!');
+}
+
+async function delDespesa(mes, id) {
+  if (!finData.despesas[mes]) return;
+  finData.despesas[mes] = finData.despesas[mes].filter(d => d.id !== id);
+  await saveFinData();
+  renderDespesas();
+  renderResumo();
+  toast('Despesa removida.');
+}
+
+function renderDespesas() {
+  const mes = document.getElementById('sel-mes-desp-view')?.value || getMesAtual();
+  const list = document.getElementById('desp-list');
+  const totalEl = document.getElementById('desp-total');
+  if (!list) return;
+  const desps = finData.despesas[mes] || [];
+  if (desps.length === 0) {
+    list.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:0.85rem">Nenhuma despesa neste mês.</div>`;
+    totalEl.textContent = '';
+    return;
+  }
+  let total = 0;
+  list.innerHTML = desps.map(d => {
+    total += d.valor;
+    return `
+      <div class="desp-item">
+        <div class="desp-desc">${esc(d.desc)}</div>
+        <div class="desp-val">R$ ${d.valor.toFixed(2)}</div>
+        <button class="desp-del" onclick="delDespesa('${mes}', ${d.id})">✕</button>
+      </div>`;
+  }).join('');
+  totalEl.textContent = `Total: R$ ${total.toFixed(2)}`;
+}
+
+// ── RESUMO ──
+function renderResumo() {
+  const mes = document.getElementById('sel-mes-resumo')?.value || getMesAtual();
+  const pag = finData.pagamentos[mes] || {};
+  const pagos = Object.values(pag).filter(Boolean).length;
+  const receita = pagos * (finData.mensalidade || 25);
+
+  const desps = finData.despesas[mes] || [];
+  const despTotal = desps.reduce((s, d) => s + d.valor, 0);
+
+  const saldo = receita - despTotal;
+  const pendentes = players.filter(p => !pag[p.id]).length;
+
+  document.getElementById('res-receita').textContent = 'R$ ' + receita.toFixed(2);
+  document.getElementById('res-despesa').textContent = 'R$ ' + despTotal.toFixed(2);
+  document.getElementById('res-saldo').textContent = 'R$ ' + saldo.toFixed(2);
+  document.getElementById('res-saldo').style.color = saldo >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('res-inadimplentes').textContent = pendentes;
+
+  // Barra arrecadação
+  const esperado = players.length * (finData.mensalidade || 25);
+  const pct = esperado > 0 ? Math.min(100, (receita / esperado) * 100) : 0;
+  document.getElementById('bar-arrecad').style.width = pct + '%';
+  document.getElementById('bar-label').textContent = `R$ ${receita.toFixed(2)} de R$ ${esperado.toFixed(2)} esperados (${Math.round(pct)}%)`;
+
+  // Histórico geral
+  renderHistorico();
+
+  // Atenção
+  renderAtencaoList();
+}
+
+function renderHistorico() {
+  const el = document.getElementById('historico-list');
+  if (!el) return;
+  const meses = getMeses().reverse();
+  const rows = meses.map(m => {
+    const pag = finData.pagamentos[m.key] || {};
+    const pagos = Object.values(pag).filter(Boolean).length;
+    const rec = pagos * (finData.mensalidade || 25);
+    const desp = (finData.despesas[m.key] || []).reduce((s,d) => s + d.valor, 0);
+    const sal = rec - desp;
+    if (rec === 0 && desp === 0) return '';
+    return `
+      <div class="month-history-item">
+        <div>
+          <div style="font-weight:700;font-size:0.85rem">${m.label}</div>
+          <div style="font-size:0.7rem;color:var(--text-muted)">${pagos} pagamento(s)</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:0.8rem;color:var(--green)">+R$ ${rec.toFixed(2)}</div>
+          ${desp > 0 ? `<div style="font-size:0.75rem;color:var(--red)">-R$ ${desp.toFixed(2)}</div>` : ''}
+          <div style="font-size:0.8rem;font-weight:900;color:${sal>=0?'var(--green)':'var(--red)'}">= R$ ${sal.toFixed(2)}</div>
+        </div>
+      </div>`;
+  }).filter(Boolean).join('');
+  el.innerHTML = rows || `<div class="empty-state"><div class="empty-icon">📂</div><div class="empty-text">Nenhum lançamento ainda.</div></div>`;
+}
+
+function renderAtencaoList() {
+  const el = document.getElementById('atencao-list');
+  if (!el) return;
+  const lista = players
+    .map(p => ({ p, atraso: mesesEmAtraso(p.id) }))
+    .filter(x => x.atraso >= 2)
+    .sort((a,b) => b.atraso - a.atraso);
+
+  if (lista.length === 0) {
+    el.innerHTML = `<div style="font-size:0.85rem;color:var(--text-muted)">✅ Nenhum jogador em atraso!</div>`;
+    return;
+  }
+  el.innerHTML = lista.map(({p, atraso}) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:1.3rem">⚠️</div>
+      <div style="flex:1;font-weight:700;font-size:0.9rem">${esc(p.nome)}</div>
+      <div style="font-size:0.75rem;color:var(--gold);font-weight:700">${atraso} ${atraso===1?'mês':'meses'} em atraso</div>
+    </div>`).join('');
+}
+
 // ─── UTILS ────────────────────────────────────────────────────────────────
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -532,6 +969,7 @@ function toast(msg) {
 // ─── INIT ─────────────────────────────────────────────────────────────────
 (async () => {
   await loadData();
+  await loadFinData();
   selectNivel(3);
   renderPlayers();
   document.getElementById('loading').classList.add('hidden');
