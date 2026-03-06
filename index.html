@@ -257,6 +257,19 @@
     <div class="section-label" id="player-count-label">0 jogadores</div>
     <button class="btn btn-outline btn-sm" onclick="clearAll()">🗑 Limpar tudo</button>
   </div>
+
+  <!-- Toggle Ativos / Histórico -->
+  <div style="display:flex;gap:6px;margin-bottom:12px">
+    <button id="btn-pl-ativos" onclick="setPlayerView('ativos')"
+      style="flex:1;padding:9px;border-radius:10px;border:2px solid var(--green);background:var(--green);color:#000;font-weight:900;font-size:0.8rem;cursor:pointer">
+      ⚽ Ativos
+    </button>
+    <button id="btn-pl-historico" onclick="setPlayerView('historico')"
+      style="flex:1;padding:9px;border-radius:10px;border:2px solid var(--border);background:var(--surface2);color:var(--text-muted);font-weight:700;font-size:0.8rem;cursor:pointer">
+      📋 Histórico
+    </button>
+  </div>
+
   <div class="player-list" id="player-list"></div>
 </div>
 
@@ -696,31 +709,148 @@ async function confirmarEditPlayer(id) {
 }
 
 async function deletePlayer(id) {
-  players = players.filter(p => p.id !== id);
+  // Soft-delete: torna inativo em vez de remover
+  const p = players.find(x => x.id === id);
+  if (!p) return;
+  if (!confirm(`Inativar "${p.nome}"?\n\nO histórico financeiro dele será preservado.\nVocê poderá reativar depois.`)) return;
+  p.ativo = false;
+  p.dataInativacao = new Date().toISOString().slice(0,10);
   await saveData();
   renderPlayers();
   renderPresence();
-  toast('Jogador removido.');
+  toast('⏸ ' + p.nome + ' inativado.');
+}
+
+async function reativarPlayer(id) {
+  const p = players.find(x => x.id === id);
+  if (!p) return;
+  p.ativo = true;
+  delete p.dataInativacao;
+  await saveData();
+  renderPlayers();
+  renderPresence();
+  toast('✅ ' + p.nome + ' reativado!');
+}
+
+async function excluirDefinitivo(id) {
+  const p = players.find(x => x.id === id);
+  if (!p) return;
+  if (!confirm(`Excluir "${p.nome}" DEFINITIVAMENTE?\n\nIsto não pode ser desfeito.\nOs valores pagos permanecem no caixa.`)) return;
+  players = players.filter(x => x.id !== id);
+  await saveData();
+  renderPlayers();
+  toast('🗑 ' + p.nome + ' excluído.');
 }
 
 async function clearAll() {
-  if (!confirm('Limpar todos os jogadores?')) return;
-  players = [];
+  if (!confirm('Limpar todos os jogadores ativos?')) return;
+  players.forEach(p => { if (p.ativo !== false) { p.ativo = false; p.dataInativacao = new Date().toISOString().slice(0,10); } });
   await saveData();
   renderPlayers();
   renderPresence();
 }
 
-// ─── PRESENCE ─────────────────────────────────────────────────────────────
+// ─── PLAYER VIEW ─────────────────────────────────────────────────────────
+let playerView = 'ativos';
+
+function setPlayerView(v) {
+  playerView = v;
+  const btnA = document.getElementById('btn-pl-ativos');
+  const btnH = document.getElementById('btn-pl-historico');
+  if (btnA) {
+    btnA.style.background  = v === 'ativos' ? 'var(--green)'    : 'var(--surface2)';
+    btnA.style.color        = v === 'ativos' ? '#000'            : 'var(--text-muted)';
+    btnA.style.borderColor  = v === 'ativos' ? 'var(--green)'    : 'var(--border)';
+    btnH.style.background  = v === 'historico' ? 'var(--gold)'   : 'var(--surface2)';
+    btnH.style.color        = v === 'historico' ? '#000'         : 'var(--text-muted)';
+    btnH.style.borderColor  = v === 'historico' ? 'var(--gold)'  : 'var(--border)';
+  }
+  renderPlayers();
+}
+
+// ─── RENDER PLAYERS ───────────────────────────────────────────────────────
+function renderPlayers() {
+  const list = document.getElementById('player-list');
+
+  // Ativos = ativo !== false; Inativos = ativo === false
+  const ativos   = players.filter(p => p.ativo !== false);
+  const inativos = players.filter(p => p.ativo === false);
+
+  document.getElementById('player-count-label').textContent =
+    ativos.length + ' ativo' + (ativos.length !== 1 ? 's' : '') +
+    (inativos.length > 0 ? ` · ${inativos.length} inativo${inativos.length !== 1 ? 's' : ''}` : '');
+
+  if (playerView === 'ativos') {
+    if (ativos.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon">👟</div><div class="empty-text">Nenhum jogador ativo.<br>Adicione acima!</div></div>`;
+      return;
+    }
+    const sorted = [...ativos].sort((a, b) => b.nivel - a.nivel);
+    list.innerHTML = sorted.map(p => {
+      const [aRef, mRef] = (p.mesInicio || '').split('-');
+      const refLabel = (aRef && mRef) ? `<div style="font-size:0.62rem;color:var(--text-muted)">📅 Desde ${NOMES_MESES[parseInt(mRef)-1]} ${aRef}</div>` : '';
+      return `
+      <div class="player-item">
+        <div class="nivel-badge n${p.nivel}">${p.nivel}</div>
+        <div style="flex:1">
+          <div class="player-name">${esc(p.nome)}</div>
+          ${refLabel}
+        </div>
+        <div class="stars">${'★'.repeat(p.nivel)}${'☆'.repeat(5-p.nivel)}</div>
+        <button class="del-btn" onclick="editNivel(${p.id})" title="Editar">✏️</button>
+        <button class="del-btn" onclick="deletePlayer(${p.id})" title="Inativar">⏸</button>
+      </div>`;
+    }).join('');
+
+  } else {
+    // Histórico: mostra inativos
+    if (inativos.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">Nenhum jogador inativo ainda.</div></div>`;
+      return;
+    }
+    const sorted = [...inativos].sort((a, b) => a.nome.localeCompare(b.nome));
+    list.innerHTML = sorted.map(p => {
+      const [aRef, mRef] = (p.mesInicio || '').split('-');
+      const refLabel = (aRef && mRef) ? `<div style="font-size:0.62rem;color:var(--text-muted)">📅 Início: ${NOMES_MESES[parseInt(mRef)-1]} ${aRef}</div>` : '';
+      const dataInativ = p.dataInativacao ? `<div style="font-size:0.62rem;color:var(--red);opacity:.8">⏸ Inativado: ${p.dataInativacao}</div>` : '';
+
+      // Calcula total pago pelo jogador (histórico financeiro)
+      let totalPago = 0;
+      Object.values(finData.pagamentos).forEach(mes => { if (mes[p.id]) totalPago += (finData.mensalidade || 25); });
+
+      return `
+      <div class="player-item" style="border-color:#3a3a3a;opacity:.85">
+        <div class="nivel-badge n${p.nivel}" style="opacity:.6">${p.nivel}</div>
+        <div style="flex:1">
+          <div class="player-name" style="color:var(--text-muted)">${esc(p.nome)}</div>
+          ${refLabel}
+          ${dataInativ}
+          ${totalPago > 0 ? `<div style="font-size:0.62rem;color:var(--green);opacity:.8">💰 Total pago: R$ ${totalPago.toFixed(2)}</div>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+          <button class="del-btn" onclick="reativarPlayer(${p.id})" title="Reativar"
+            style="color:var(--green);font-size:0.72rem;font-weight:700;padding:4px 8px;border:1px solid var(--green);border-radius:6px">
+            ▶ Reativar
+          </button>
+          <button class="del-btn" onclick="excluirDefinitivo(${p.id})" title="Excluir definitivo"
+            style="color:var(--red);font-size:0.65rem;padding:2px 6px">
+            🗑 Excluir
+          </button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
 function renderPresence() {
   const list = document.getElementById('presence-list');
-  document.getElementById('present-count').textContent = players.filter(p => p.presente).length;
+  const ativos = players.filter(p => p.ativo !== false);
+  document.getElementById('present-count').textContent = ativos.filter(p => p.presente).length;
 
-  if (players.length === 0) {
+  if (ativos.length === 0) {
     list.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">Cadastre jogadores primeiro!</div></div>`;
     return;
   }
-  const sorted = [...players].sort((a, b) => a.nome.localeCompare(b.nome));
+  const sorted = [...ativos].sort((a, b) => a.nome.localeCompare(b.nome));
   list.innerHTML = sorted.map(p => `
     <div class="presence-item ${p.presente ? 'present' : ''}" onclick="togglePresence(${p.id})">
       <div class="check-circle">${p.presente ? '✓' : ''}</div>
@@ -739,13 +869,13 @@ async function togglePresence(id) {
 }
 
 async function selectAll(val) {
-  players.forEach(p => p.presente = val);
+  players.filter(p => p.ativo !== false).forEach(p => p.presente = val);
   await saveData(); renderPresence(); updateSortInfo();
 }
 
 // ─── SORT INFO ────────────────────────────────────────────────────────────
 function updateSortInfo() {
-  const presentes = players.filter(p => p.presente);
+  const presentes = players.filter(p => p.ativo !== false && p.presente);
   const el = document.getElementById('sort-info');
   if (!el) return;
   if (presentes.length === 0) {
@@ -763,7 +893,7 @@ function mediaTime(time) {
 }
 
 function sortearTimes() {
-  const presentes = players.filter(p => p.presente);
+  const presentes = players.filter(p => p.ativo !== false && p.presente);
   if (presentes.length < 6) { toast('Marque pelo menos 6 presentes!'); return; }
 
   const numTimesCompletos = Math.floor(presentes.length / 6);
@@ -1069,13 +1199,14 @@ function renderMensalidades() {
 
   if (label) label.textContent = `📅 ${NOMES_MESES[mes-1]} de ${ano}`;
 
-  if (players.length === 0) {
+  const ativos = players.filter(p => p.ativo !== false);
+  if (ativos.length === 0) {
     list.innerHTML = `<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">Cadastre jogadores na aba Jogadores!</div></div>`;
     return;
   }
 
   const pag = finData.pagamentos[key] || {};
-  const sorted = [...players].sort((a,b) => a.nome.localeCompare(b.nome));
+  const sorted = [...ativos].sort((a,b) => a.nome.localeCompare(b.nome));
 
   // Calcula resumo do mês
   const totalPagos = sorted.filter(p => !!pag[p.id]).length;
@@ -1263,11 +1394,12 @@ function renderResumoGeral() {
 // ── Tabela jogadores × meses clicável ──
 function renderJogadorPagamentos(ano) {
   const el = document.getElementById('jogador-pagamentos-list');
-  if (!el || players.length === 0) {
-    if (el) el.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:0.85rem">Nenhum jogador cadastrado.</div>`;
+  const ativos = players.filter(p => p.ativo !== false);
+  if (!el || ativos.length === 0) {
+    if (el) el.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:0.85rem">Nenhum jogador ativo.</div>`;
     return;
   }
-  const sorted = [...players].sort((a,b) => a.nome.localeCompare(b.nome));
+  const sorted = [...ativos].sort((a,b) => a.nome.localeCompare(b.nome));
   let html = '';
   sorted.forEach(p => {
     const atraso = mesesEmAtraso(p);
@@ -1322,13 +1454,14 @@ function renderResumo() {
   const mesFiltro = document.getElementById('sel-mes-resumo')?.value || String(mesSistema()).padStart(2,'0');
   const key = anoFiltro + '-' + mesFiltro;
 
+  const ativos = players.filter(p => p.ativo !== false);
   const pag = finData.pagamentos[key] || {};
   const pagos = Object.values(pag).filter(Boolean).length;
   const receita = pagos * (finData.mensalidade || 25);
   const desps = finData.despesas[key] || [];
   const despTotal = desps.reduce((s,d) => s + d.valor, 0);
   const saldo = receita - despTotal;
-  const pendentes = players.filter(p => !pag[p.id]).length;
+  const pendentes = ativos.filter(p => !pag[p.id]).length;
 
   document.getElementById('res-receita').textContent = 'R$ ' + receita.toFixed(2);
   document.getElementById('res-despesa').textContent = 'R$ ' + despTotal.toFixed(2);
@@ -1336,7 +1469,7 @@ function renderResumo() {
   document.getElementById('res-saldo').style.color   = saldo >= 0 ? 'var(--green)' : 'var(--red)';
   document.getElementById('res-inadimplentes').textContent = pendentes;
 
-  const esperado = players.length * (finData.mensalidade || 25);
+  const esperado = ativos.length * (finData.mensalidade || 25);
   const pct = esperado > 0 ? Math.min(100, (receita / esperado) * 100) : 0;
   document.getElementById('bar-arrecad').style.width = pct + '%';
   document.getElementById('bar-label').textContent   = `R$ ${receita.toFixed(2)} de R$ ${esperado.toFixed(2)} esperados (${Math.round(pct)}%)`;
@@ -1375,7 +1508,7 @@ function renderHistorico(anoFiltro) {
       <div class="month-history-item">
         <div>
           <div style="font-weight:700;font-size:0.88rem">${nomeMes} ${a}</div>
-          <div style="font-size:0.7rem;color:var(--text-muted)">${pagos}/${players.length} pago(s)</div>
+          <div style="font-size:0.7rem;color:var(--text-muted)">${pagos}/${players.filter(p=>p.ativo!==false).length} pago(s)</div>
         </div>
         <div style="text-align:right">
           <div style="font-size:0.8rem;color:var(--green)">+R$ ${rec.toFixed(2)}</div>
@@ -1390,6 +1523,7 @@ function renderAtencaoListEl(elId) {
   const el = document.getElementById(elId);
   if (!el) return;
   const lista = players
+    .filter(p => p.ativo !== false)
     .map(p => ({ p, atraso: mesesEmAtraso(p) }))
     .filter(x => x.atraso >= 2)
     .sort((a,b) => b.atraso - a.atraso);
@@ -1423,6 +1557,7 @@ function toast(msg) {
   await loadData();
   await loadFinData();
   selectNivel(3);
+  setPlayerView('ativos'); // inicializa botões de toggle
   // Pre-fill mes de referência no cadastro com mês/ano atual
   const mesRefEl = document.getElementById('input-mes-ref');
   const anoRefEl = document.getElementById('input-ano-ref');
