@@ -214,6 +214,22 @@
     border-radius:var(--radius-sm); color:var(--text); font-family:'Nunito',sans-serif;
     font-size:0.95rem; padding:10px 14px; -webkit-appearance:none;
   }
+
+  .pres-item { display:flex; align-items:center; gap:10px; background:var(--surface2); border-radius:var(--radius-sm); padding:10px 12px; border:1px solid var(--border); margin-bottom:8px; }
+  .pres-counter { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  .pres-btn { width:28px; height:28px; border-radius:50%; border:none; font-size:1rem; font-weight:900; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .15s; flex-shrink:0; }
+  .pres-btn:active { transform:scale(.88); }
+  .pres-btn-minus { background:#2e0a0a; color:var(--red); }
+  .pres-btn-plus  { background:#0d2e14; color:var(--green); }
+  .pres-num { font-family:'Bebas Neue',sans-serif; font-size:1.4rem; color:var(--gold); min-width:26px; text-align:center; line-height:1; }
+  .rank-item { display:flex; align-items:center; gap:10px; padding:9px 12px; background:var(--surface2); border-radius:var(--radius-sm); border:1px solid var(--border); margin-bottom:6px; }
+  .rank-pos { font-family:'Bebas Neue',sans-serif; font-size:1.1rem; color:var(--text-muted); width:22px; text-align:center; flex-shrink:0; }
+  .rank-pos.gold   { color:var(--gold); }
+  .rank-pos.silver { color:#aaa; }
+  .rank-pos.bronze { color:#cd7f32; }
+  .rank-bar-wrap { flex:1; }
+  .rank-bar-bg { height:6px; background:var(--border); border-radius:4px; margin-top:4px; overflow:hidden; }
+  .rank-bar-fill { height:100%; border-radius:4px; background:var(--green); transition:width .4s ease; }
 </style>
 </head>
 <body>
@@ -297,15 +313,76 @@
 
 <!-- PRESENÇA -->
 <div class="page" id="page-presenca">
-  <div class="presence-count">
-    <div class="count-num" id="present-count">0</div>
-    <div class="count-label">Presentes hoje</div>
+
+  <!-- Sub-toggle Hoje / Por Mês -->
+  <div style="display:flex;gap:6px;margin-bottom:12px">
+    <button id="btn-pres-hoje" onclick="setPresView('hoje')"
+      style="flex:1;padding:9px;border-radius:10px;border:2px solid var(--green);background:var(--green);color:#000;font-weight:900;font-size:0.8rem;cursor:pointer">
+      ✅ Hoje
+    </button>
+    <button id="btn-pres-mes" onclick="setPresView('mes')"
+      style="flex:1;padding:9px;border-radius:10px;border:2px solid var(--border);background:var(--surface2);color:var(--text-muted);font-weight:700;font-size:0.8rem;cursor:pointer">
+      📅 Por Mês
+    </button>
   </div>
-  <div style="display:flex; gap:8px; margin-bottom:12px;">
-    <button class="btn btn-outline" style="flex:1" onclick="selectAll(true)">☑ Todos</button>
-    <button class="btn btn-outline" style="flex:1" onclick="selectAll(false)">☐ Nenhum</button>
+
+  <!-- PAINEL HOJE -->
+  <div id="pres-painel-hoje">
+    <div class="presence-count">
+      <div class="count-num" id="present-count">0</div>
+      <div class="count-label">Presentes hoje</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <button class="btn btn-outline" style="flex:1" onclick="selectAll(true)">☑ Todos</button>
+      <button class="btn btn-outline" style="flex:1" onclick="selectAll(false)">☐ Nenhum</button>
+    </div>
+    <button class="btn btn-green" onclick="confirmarPelada()" style="margin-bottom:12px">
+      ⚽ CONFIRMAR PELADA DE HOJE
+    </button>
+    <div id="presence-list"></div>
   </div>
-  <div id="presence-list"></div>
+
+  <!-- PAINEL POR MÊS -->
+  <div id="pres-painel-mes" style="display:none">
+
+    <!-- Seletor mês/ano -->
+    <div class="card">
+      <div class="card-title">📅 Presenças por Mês</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div>
+          <div class="section-label">Mês</div>
+          <select id="sel-pres-mes" onchange="renderPresencaMes()">
+            <option value="01">Janeiro</option><option value="02">Fevereiro</option>
+            <option value="03">Março</option><option value="04">Abril</option>
+            <option value="05">Maio</option><option value="06">Junho</option>
+            <option value="07">Julho</option><option value="08">Agosto</option>
+            <option value="09">Setembro</option><option value="10">Outubro</option>
+            <option value="11">Novembro</option><option value="12">Dezembro</option>
+          </select>
+        </div>
+        <div>
+          <div class="section-label">Ano</div>
+          <input type="number" id="input-pres-ano" min="2020" max="2099" oninput="renderPresencaMes()">
+        </div>
+      </div>
+      <div id="pres-mes-total" style="text-align:center;font-size:0.75rem;color:var(--text-muted);margin-bottom:10px"></div>
+      <div id="pres-mes-list"></div>
+    </div>
+
+    <!-- Ranking -->
+    <div class="card">
+      <div class="card-title">🏆 Ranking de Presença</div>
+      <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:10px">Total acumulado de todas as peladas</div>
+      <div id="pres-ranking-list"></div>
+    </div>
+
+    <!-- Histórico mês a mês -->
+    <div class="card">
+      <div class="card-title">📊 Histórico Mensal</div>
+      <div id="pres-historico-list"></div>
+    </div>
+
+  </div>
 </div>
 
 <!-- TIMES -->
@@ -714,7 +791,7 @@ function showTab(name) {
   document.getElementById('page-' + name).classList.add('active');
   const idx = ['jogadores','presenca','times','financeiro'].indexOf(name);
   document.querySelectorAll('.tab')[idx].classList.add('active');
-  if (name === 'presenca') renderPresence();
+  if (name === 'presenca') { renderPresence(); initPresencaMes(); }
   if (name === 'times') updateSortInfo();
   if (name === 'financeiro') initFinanceiro();
 }
@@ -1152,7 +1229,8 @@ let finData = {
   pagamentos: {},   // { 'YYYY-MM': { playerId: true } }
   despesas: {},     // { 'YYYY-MM': [ {id, desc, valor} ] }
   entradas: {},     // { 'YYYY-MM': [ {id, desc, valor} ] }
-  ajustes: {}       // { 'YYYY-MM': [ {id, desc, valor} ] }  ← ajustes manuais de saldo
+  ajustes: {},      // { 'YYYY-MM': [ {id, desc, valor} ] }
+  presencas: {}     // { 'YYYY-MM': { playerId: N } }  ← contagem mensal
 };
 
 // Mês atualmente selecionado na aba mensalidades (número 1-12)
@@ -1246,9 +1324,10 @@ function initFinanceiro() {
   if (entViewAno) entViewAno.value = finData.ano || anoAtual;
   if (entViewMes) entViewMes.value = String(mesAtual).padStart(2,'0');
 
-  // Garante entradas e ajustes no finData
-  if (!finData.entradas) finData.entradas = {};
-  if (!finData.ajustes) finData.ajustes = {};
+  // Garante entradas, ajustes e presencas no finData
+  if (!finData.entradas)  finData.entradas  = {};
+  if (!finData.ajustes)   finData.ajustes   = {};
+  if (!finData.presencas) finData.presencas = {};
 
   // Inicializa toggle despesas/entradas
   setDespView('despesas');
@@ -2007,9 +2086,10 @@ async function zerarLancamentos() {
   if (!confirm('⚠️ ATENÇÃO!\n\nIsso vai apagar TODOS os lançamentos:\n• Mensalidades pagas\n• Despesas\n• Entradas avulsas\n\nOs jogadores cadastrados serão mantidos.\n\nTem certeza?')) return;
   if (!confirm('Confirme novamente: deseja ZERAR todos os lançamentos financeiros?')) return;
   finData.pagamentos = {};
-  finData.despesas = {};
-  finData.entradas = {};
-  finData.ajustes = {};
+  finData.despesas   = {};
+  finData.entradas   = {};
+  finData.ajustes    = {};
+  finData.presencas  = {};
   await saveFinData();
   initFinanceiro();
   toast('🗑️ Todos os lançamentos foram zerados!');
@@ -2035,6 +2115,16 @@ function imprimirRelatorioMensal() {
   const ajustes  = (finData.ajustes || {})[key] || [];
   const ajusteTotal = ajustes.reduce((s, a) => s + a.valor, 0);
   const saldo = recMens + recExtra + ajusteTotal - despTotal;
+
+  // Presenças do mês
+  const presencasMes = (finData.presencas || {})[key] || {};
+  const totalPeladas = players.filter(p => p.ativo !== false).length > 0
+    ? Math.max(0, ...players.filter(p => p.ativo !== false).map(p => presencasMes[p.id] || 0))
+    : 0;
+  const presRanking = ativos
+    .map(p => ({ nome: p.nome, n: presencasMes[p.id] || 0 }))
+    .filter(x => x.n > 0)
+    .sort((a,b) => b.n - a.n);
 
   const win = window.open('', '_blank');
   win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -2092,6 +2182,13 @@ function imprimirRelatorioMensal() {
   <h2>🔧 Ajustes de Saldo</h2>
   <table><tr><th>#</th><th>Descrição</th><th>Valor</th></tr>
   ${ajustes.map((a,i) => `<tr><td>${i+1}</td><td>${esc(a.desc)}</td><td style="color:${a.valor>=0?'#1a7a3a':'#cc0000'};font-weight:700">${a.valor>=0?'+':''}R$ ${a.valor.toFixed(2)}</td></tr>`).join('')}
+  </table>` : ''}
+
+  ${totalPeladas > 0 ? `
+  <h2>⚽ Presenças — ${totalPeladas} pelada(s) em ${nomeMes} ${anoFiltro}</h2>
+  <table>
+    <tr><th>#</th><th>Jogador</th><th>Presenças</th><th>% Presença</th></tr>
+    ${presRanking.map((r,i) => `<tr><td>${i+1}</td><td>${esc(r.nome)}</td><td style="text-align:center;font-weight:700">${r.n}</td><td style="text-align:center;color:${r.n===totalPeladas?'#1a7a3a':'#555'}">${totalPeladas > 0 ? Math.round((r.n/totalPeladas)*100) : 0}%</td></tr>`).join('')}
   </table>` : ''}
 
   <div class="footer">Controle de Pelada KF · Relatório gerado automaticamente</div>
@@ -2188,6 +2285,192 @@ function imprimirRelatorioAnual() {
   </body></html>`);
   win.document.close();
   win.print();
+}
+
+// ─── PRESENÇA MENSAL ──────────────────────────────────────────────────────
+let presView = 'hoje';
+
+function setPresView(v) {
+  presView = v;
+  const btnH = document.getElementById('btn-pres-hoje');
+  const btnM = document.getElementById('btn-pres-mes');
+  const painelH = document.getElementById('pres-painel-hoje');
+  const painelM = document.getElementById('pres-painel-mes');
+  if (!btnH) return;
+  btnH.style.background  = v === 'hoje' ? 'var(--green)'   : 'var(--surface2)';
+  btnH.style.color        = v === 'hoje' ? '#000'           : 'var(--text-muted)';
+  btnH.style.borderColor  = v === 'hoje' ? 'var(--green)'   : 'var(--border)';
+  btnM.style.background  = v === 'mes'  ? 'var(--gold)'    : 'var(--surface2)';
+  btnM.style.color        = v === 'mes'  ? '#000'           : 'var(--text-muted)';
+  btnM.style.borderColor  = v === 'mes'  ? 'var(--gold)'    : 'var(--border)';
+  painelH.style.display = v === 'hoje' ? 'block' : 'none';
+  painelM.style.display = v === 'mes'  ? 'block' : 'none';
+  if (v === 'mes') renderPresencaMes();
+}
+
+function initPresencaMes() {
+  if (!finData.presencas) finData.presencas = {};
+  const selMes = document.getElementById('sel-pres-mes');
+  const inputAno = document.getElementById('input-pres-ano');
+  if (selMes)   selMes.value   = String(mesSistema()).padStart(2,'0');
+  if (inputAno) inputAno.value = anoSistema();
+}
+
+// Confirma a pelada de hoje: soma +1 para cada presente no mês/ano atual
+async function confirmarPelada() {
+  const ativos = players.filter(p => p.ativo !== false && p.presente);
+  if (ativos.length === 0) { toast('Marque os presentes primeiro!'); return; }
+  if (!confirm(`Confirmar presença de ${ativos.length} jogador(es) na pelada de hoje?\n\nIsso vai somar +1 na contagem do mês atual para cada jogador marcado.`)) return;
+  if (!finData.presencas) finData.presencas = {};
+  const key = mesKey(anoSistema(), mesSistema());
+  if (!finData.presencas[key]) finData.presencas[key] = {};
+  ativos.forEach(p => {
+    finData.presencas[key][p.id] = (finData.presencas[key][p.id] || 0) + 1;
+  });
+  await saveFinData();
+  toast(`⚽ ${ativos.length} presença(s) confirmada(s)!`);
+  // Atualiza view mensal se estiver visível
+  renderPresencaMes();
+}
+
+function renderPresencaMes() {
+  if (!finData.presencas) finData.presencas = {};
+  const mes = document.getElementById('sel-pres-mes')?.value || String(mesSistema()).padStart(2,'0');
+  const ano = parseInt(document.getElementById('input-pres-ano')?.value) || anoSistema();
+  const key = ano + '-' + mes;
+  const nomeMes = NOMES_MESES[parseInt(mes)-1];
+  const ativos = players.filter(p => p.ativo !== false);
+  const pres = finData.presencas[key] || {};
+
+  // Total de peladas neste mês = máximo de presenças de qualquer jogador
+  const totalPeladas = ativos.length > 0
+    ? Math.max(0, ...ativos.map(p => pres[p.id] || 0))
+    : 0;
+
+  const totalEl = document.getElementById('pres-mes-total');
+  if (totalEl) totalEl.textContent = `⚽ ${totalPeladas} pelada(s) em ${nomeMes} ${ano}`;
+
+  // Lista com +/- por jogador
+  const list = document.getElementById('pres-mes-list');
+  if (!list) return;
+  if (ativos.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">Cadastre jogadores primeiro!</div></div>`;
+  } else {
+    const sorted = [...ativos].sort((a,b) => (pres[b.id]||0) - (pres[a.id]||0) || a.nome.localeCompare(b.nome));
+    list.innerHTML = sorted.map(p => {
+      const n = pres[p.id] || 0;
+      const pct = totalPeladas > 0 ? Math.round((n / totalPeladas) * 100) : 0;
+      return `
+        <div class="pres-item">
+          <div class="nivel-badge n${p.nivel}">${p.nivel}</div>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:0.9rem">${esc(p.nome)}</div>
+            <div style="font-size:0.65rem;color:var(--text-muted)">${pct}% de presença</div>
+          </div>
+          <div class="pres-counter">
+            <button class="pres-btn pres-btn-minus" onclick="alterarPresenca('${key}',${p.id},-1)">−</button>
+            <div class="pres-num">${n}</div>
+            <button class="pres-btn pres-btn-plus"  onclick="alterarPresenca('${key}',${p.id},+1)">+</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  renderPresRanking();
+  renderPresHistorico();
+}
+
+async function alterarPresenca(key, playerId, delta) {
+  if (!finData.presencas) finData.presencas = {};
+  if (!finData.presencas[key]) finData.presencas[key] = {};
+  const atual = finData.presencas[key][playerId] || 0;
+  const novo = Math.max(0, atual + delta);
+  if (novo === 0) delete finData.presencas[key][playerId];
+  else finData.presencas[key][playerId] = novo;
+  await saveFinData();
+  renderPresencaMes();
+}
+
+function renderPresRanking() {
+  if (!finData.presencas) return;
+  const el = document.getElementById('pres-ranking-list');
+  if (!el) return;
+  const ativos = players.filter(p => p.ativo !== false);
+  if (ativos.length === 0) {
+    el.innerHTML = `<div style="font-size:0.85rem;color:var(--text-muted);text-align:center;padding:12px">Nenhum jogador ativo.</div>`;
+    return;
+  }
+
+  // Soma total de presenças por jogador em todos os meses
+  const totais = {};
+  Object.values(finData.presencas).forEach(mes => {
+    Object.entries(mes).forEach(([pid, n]) => {
+      totais[pid] = (totais[pid] || 0) + n;
+    });
+  });
+
+  const ranking = ativos
+    .map(p => ({ p, total: totais[p.id] || 0 }))
+    .sort((a,b) => b.total - a.total || a.p.nome.localeCompare(b.p.nome));
+
+  const maxTotal = ranking[0]?.total || 1;
+
+  const medalhas = ['gold','silver','bronze'];
+  el.innerHTML = ranking.map(({p, total}, i) => {
+    const pct = maxTotal > 0 ? (total / maxTotal) * 100 : 0;
+    const posClass = i < 3 ? medalhas[i] : '';
+    const posLabel = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}°`;
+    return `
+      <div class="rank-item">
+        <div class="rank-pos ${posClass}">${posLabel}</div>
+        <div class="nivel-badge n${p.nivel}">${p.nivel}</div>
+        <div class="rank-bar-wrap">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <span style="font-weight:700;font-size:0.88rem">${esc(p.nome)}</span>
+            <span style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--gold)">${total}</span>
+          </div>
+          <div class="rank-bar-bg"><div class="rank-bar-fill" style="width:${pct}%"></div></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderPresHistorico() {
+  if (!finData.presencas) return;
+  const el = document.getElementById('pres-historico-list');
+  if (!el) return;
+  const chaves = Object.keys(finData.presencas)
+    .filter(k => Object.keys(finData.presencas[k]).length > 0)
+    .sort().reverse();
+
+  if (chaves.length === 0) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📂</div><div class="empty-text">Nenhum registro ainda.</div></div>`;
+    return;
+  }
+
+  const ativos = players.filter(p => p.ativo !== false);
+  el.innerHTML = chaves.map(key => {
+    const [a, m] = key.split('-');
+    const nomeMes = NOMES_MESES[parseInt(m)-1];
+    const pres = finData.presencas[key];
+    const totalPeladas = Math.max(0, ...Object.values(pres));
+    const totalPresencas = Object.values(pres).reduce((s,n) => s+n, 0);
+    const top = ativos
+      .filter(p => pres[p.id] > 0)
+      .sort((a,b) => (pres[b.id]||0) - (pres[a.id]||0))
+      .slice(0,3)
+      .map(p => `<span style="font-size:0.7rem;background:var(--surface);border:1px solid var(--border);padding:2px 7px;border-radius:20px;color:var(--green)">${esc(p.nome)} (${pres[p.id]})</span>`)
+      .join(' ');
+    return `
+      <div class="month-history-item" style="flex-direction:column;align-items:flex-start;gap:6px">
+        <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
+          <div style="font-weight:700;font-size:0.9rem">${nomeMes} ${a}</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--gold)">${totalPeladas} pelada(s)</div>
+        </div>
+        <div style="font-size:0.7rem;color:var(--text-muted)">${totalPresencas} presença(s) registrada(s)</div>
+        ${top ? `<div style="display:flex;flex-wrap:wrap;gap:4px">${top}</div>` : ''}
+      </div>`;
+  }).join('');
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────
