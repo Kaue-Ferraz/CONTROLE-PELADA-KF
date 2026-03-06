@@ -371,6 +371,42 @@
         ⏳ <strong style="color:#888">Pendente</strong> — ainda não pagou este mês
       </div>
     </div>
+
+    <!-- Ajuste de saldo manual -->
+    <div class="card" style="border-color:#3b3b00">
+      <div class="card-title" style="color:var(--gold)">🔧 Ajuste de Saldo do Mês</div>
+      <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:12px;line-height:1.6">
+        Use para corrigir valores sem origem identificada. Um ajuste <strong style="color:var(--red)">negativo</strong> desconta do saldo (ex: -50 para remover R$50 a mais). Um ajuste <strong style="color:var(--green)">positivo</strong> acrescenta.
+      </div>
+      <div id="ajuste-mes-label" style="font-size:0.75rem;font-weight:700;color:var(--gold);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;"></div>
+      <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:10px">
+        <div style="flex:1">
+          <div class="section-label">Descrição do ajuste</div>
+          <input type="text" id="input-ajuste-desc" placeholder="Ex: Valor não identificado..." maxlength="60">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px">
+        <div style="flex:1">
+          <div class="section-label">Valor (use negativo para descontar)</div>
+          <input type="number" id="input-ajuste-val" placeholder="Ex: -50.00 ou +30.00" step="0.01">
+        </div>
+      </div>
+      <button class="btn" onclick="addAjuste()" style="background:#2a2200;color:var(--gold);border:1px solid var(--gold);font-family:Nunito,sans-serif;font-weight:900;font-size:0.9rem;letter-spacing:0">
+        🔧 APLICAR AJUSTE
+      </button>
+      <div id="ajuste-list" style="margin-top:12px"></div>
+    </div>
+
+    <!-- Botão imprimir relatório da aba mensalidades -->
+    <div class="card no-print" style="border-color:#1a3a6b">
+      <div class="card-title" style="color:#60a5fa">🖨️ Relatório de Mensalidades</div>
+      <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:12px;line-height:1.6">
+        Gera um relatório do mês selecionado com os pagamentos, inadimplentes e jogadores em atraso.
+      </div>
+      <button class="btn" onclick="imprimirRelatorioMensalidades()" style="background:#1a3a6b;color:#60a5fa;border:1px solid #3b82f6;font-family:Nunito,sans-serif;font-size:0.9rem;font-weight:700;letter-spacing:0">
+        🖨️ IMPRIMIR / SALVAR PDF
+      </button>
+    </div>
   </div>
 
   <!-- ── DESPESAS ── -->
@@ -1115,7 +1151,8 @@ let finData = {
   ano: new Date().getFullYear(),
   pagamentos: {},   // { 'YYYY-MM': { playerId: true } }
   despesas: {},     // { 'YYYY-MM': [ {id, desc, valor} ] }
-  entradas: {}      // { 'YYYY-MM': [ {id, desc, valor} ] }  ← entradas avulsas
+  entradas: {},     // { 'YYYY-MM': [ {id, desc, valor} ] }
+  ajustes: {}       // { 'YYYY-MM': [ {id, desc, valor} ] }  ← ajustes manuais de saldo
 };
 
 // Mês atualmente selecionado na aba mensalidades (número 1-12)
@@ -1209,8 +1246,9 @@ function initFinanceiro() {
   if (entViewAno) entViewAno.value = finData.ano || anoAtual;
   if (entViewMes) entViewMes.value = String(mesAtual).padStart(2,'0');
 
-  // Garante entradas no finData
+  // Garante entradas e ajustes no finData
   if (!finData.entradas) finData.entradas = {};
+  if (!finData.ajustes) finData.ajustes = {};
 
   // Inicializa toggle despesas/entradas
   setDespView('despesas');
@@ -1327,6 +1365,7 @@ function renderMensalidades() {
   if (!list) return;
 
   if (label) label.textContent = `📅 ${NOMES_MESES[mes-1]} de ${ano}`;
+  renderAjustes();
 
   const ativos = players.filter(p => p.ativo !== false);
   if (ativos.length === 0) {
@@ -1500,7 +1539,7 @@ function renderResumoGeral() {
   if (elAno) elAno.textContent = anoFiltro;
   if (!finData.entradas) finData.entradas = {};
 
-  let receita = 0, despTotal = 0, entTotal = 0;
+  let receita = 0, despTotal = 0, entTotal = 0, ajusteTotal = 0;
   Object.keys(finData.pagamentos).forEach(key => {
     if (!key.startsWith(anoFiltro + '-')) return;
     receita += Object.values(finData.pagamentos[key]).filter(Boolean).length * (finData.mensalidade || 25);
@@ -1513,8 +1552,14 @@ function renderResumoGeral() {
     if (!key.startsWith(anoFiltro + '-')) return;
     entTotal += (finData.entradas[key] || []).reduce((s,e) => s + e.valor, 0);
   });
+  if (finData.ajustes) {
+    Object.keys(finData.ajustes).forEach(key => {
+      if (!key.startsWith(anoFiltro + '-')) return;
+      ajusteTotal += (finData.ajustes[key] || []).reduce((s,a) => s + a.valor, 0);
+    });
+  }
 
-  const saldo = receita + entTotal - despTotal;
+  const saldo = receita + entTotal + ajusteTotal - despTotal;
   document.getElementById('res-g-receita').textContent  = 'R$ ' + receita.toFixed(2);
   document.getElementById('res-g-entradas').textContent = 'R$ ' + entTotal.toFixed(2);
   document.getElementById('res-g-despesa').textContent  = 'R$ ' + despTotal.toFixed(2);
@@ -1597,7 +1642,9 @@ function renderResumo() {
   const despTotal = desps.reduce((s,d) => s + d.valor, 0);
   const entradas = (finData.entradas || {})[key] || [];
   const entTotal = entradas.reduce((s,e) => s + e.valor, 0);
-  const saldo = receita + entTotal - despTotal;
+  const ajustes = (finData.ajustes || {})[key] || [];
+  const ajusteTotal = ajustes.reduce((s,a) => s + a.valor, 0);
+  const saldo = receita + entTotal + ajusteTotal - despTotal;
   const pendentes = ativos.filter(p => !pag[p.id]).length;
 
   document.getElementById('res-receita').textContent  = 'R$ ' + receita.toFixed(2);
@@ -1688,6 +1735,159 @@ function toast(msg) {
   el.classList.add('show');
   clearTimeout(el._t);
   el._t = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ─── AJUSTES MANUAIS DE SALDO ──────────────────────────────────────────────
+async function addAjuste() {
+  const ano = finData.ano || anoSistema();
+  const mes = mesPagSelecionado;
+  const key = mesKey(ano, mes);
+  const desc = document.getElementById('input-ajuste-desc').value.trim();
+  const val  = parseFloat(document.getElementById('input-ajuste-val').value);
+  if (!desc) { toast('Informe a descrição do ajuste!'); return; }
+  if (isNaN(val) || val === 0) { toast('Informe um valor diferente de zero!'); return; }
+  if (!finData.ajustes) finData.ajustes = {};
+  if (!finData.ajustes[key]) finData.ajustes[key] = [];
+  finData.ajustes[key].push({ id: Date.now(), desc, valor: val });
+  await saveFinData();
+  document.getElementById('input-ajuste-desc').value = '';
+  document.getElementById('input-ajuste-val').value = '';
+  renderAjustes();
+  renderResumo();
+  renderResumoGeral();
+  const sinal = val > 0 ? '+' : '';
+  toast(`🔧 Ajuste de ${sinal}R$ ${val.toFixed(2)} aplicado!`);
+}
+
+async function delAjuste(key, id) {
+  if (!finData.ajustes || !finData.ajustes[key]) return;
+  finData.ajustes[key] = finData.ajustes[key].filter(a => a.id !== id);
+  await saveFinData();
+  renderAjustes();
+  renderResumo();
+  renderResumoGeral();
+  toast('Ajuste removido.');
+}
+
+function renderAjustes() {
+  const ano = finData.ano || anoSistema();
+  const mes = mesPagSelecionado;
+  const key = mesKey(ano, mes);
+  const el = document.getElementById('ajuste-list');
+  const labelEl = document.getElementById('ajuste-mes-label');
+  if (!el) return;
+  if (!finData.ajustes) finData.ajustes = {};
+  if (labelEl) labelEl.textContent = `📅 ${NOMES_MESES[mes-1]} de ${ano}`;
+  const lista = finData.ajustes[key] || [];
+  if (lista.length === 0) {
+    el.innerHTML = `<div style="font-size:0.78rem;color:var(--text-muted);text-align:center;padding:8px">Nenhum ajuste neste mês.</div>`;
+    return;
+  }
+  el.innerHTML = lista.map(a => {
+    const positivo = a.valor > 0;
+    const cor = positivo ? 'var(--green)' : 'var(--red)';
+    const sinal = positivo ? '+' : '';
+    return `
+      <div style="display:flex;align-items:center;gap:10px;background:var(--surface2);border-radius:var(--radius-sm);padding:9px 12px;border:1px solid ${cor}40;margin-bottom:6px">
+        <div style="font-size:0.85rem;flex-shrink:0">${positivo ? '➕' : '➖'}</div>
+        <div style="flex:1;font-size:0.85rem;font-weight:600">${esc(a.desc)}</div>
+        <div style="font-weight:900;color:${cor};font-size:0.9rem">${sinal}R$ ${Math.abs(a.valor).toFixed(2)}</div>
+        <button onclick="delAjuste('${key}', ${a.id})" style="background:none;border:none;color:#555;cursor:pointer;font-size:0.9rem;padding:2px">✕</button>
+      </div>`;
+  }).join('');
+}
+
+// ─── RELATÓRIO DE MENSALIDADES (aba mensalidades) ─────────────────────────
+function imprimirRelatorioMensalidades() {
+  const ano = finData.ano || anoSistema();
+  const mes = mesPagSelecionado;
+  const key = mesKey(ano, mes);
+  const nomeMes = NOMES_MESES[mes - 1];
+
+  const ativos = players.filter(p => p.ativo !== false);
+  const pag = finData.pagamentos[key] || {};
+  const ajustes = (finData.ajustes || {})[key] || [];
+
+  const pagos     = ativos.filter(p => !!pag[p.id]).sort((a,b) => a.nome.localeCompare(b.nome));
+  const pendentes = ativos.filter(p => !pag[p.id]).sort((a,b) => a.nome.localeCompare(b.nome));
+  const emAtraso  = pendentes
+    .map(p => ({ p, atraso: mesesEmAtraso(p) }))
+    .filter(x => x.atraso >= 2)
+    .sort((a,b) => b.atraso - a.atraso);
+  const soPendenteSemAtraso = pendentes.filter(p => {
+    const at = mesesEmAtraso(p);
+    return at < 2;
+  });
+
+  const totalArrecadado = pagos.length * (finData.mensalidade || 25);
+  const totalAjuste = ajustes.reduce((s, a) => s + a.valor, 0);
+  const totalFinal = totalArrecadado + totalAjuste;
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Mensalidades ${nomeMes} ${ano}</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 30px; color: #111; font-size: 14px; max-width: 800px; margin: 0 auto; }
+    h1 { color: #1a7a3a; border-bottom: 3px solid #1a7a3a; padding-bottom: 10px; margin-bottom: 6px; }
+    .sub { color: #555; font-size: 0.85rem; margin-bottom: 20px; }
+    h2 { margin-top: 22px; font-size: 1rem; padding: 6px 12px; border-radius: 6px; }
+    h2.verde  { background: #e6f7ee; color: #1a7a3a; border-left: 4px solid #1a7a3a; }
+    h2.vermelho { background: #fff0f0; color: #cc0000; border-left: 4px solid #cc0000; }
+    h2.laranja { background: #fff4e0; color: #b34d00; border-left: 4px solid #f97316; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 4px; }
+    th { background: #145228; color: #fff; padding: 8px 12px; text-align: left; font-size: 0.85rem; }
+    td { padding: 7px 12px; border-bottom: 1px solid #eee; font-size: 0.85rem; }
+    tr:nth-child(even) td { background: #f9f9f9; }
+    .resumo { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin: 18px 0; }
+    .box { border: 1px solid #ccc; border-radius: 8px; padding: 12px; text-align: center; }
+    .box-val { font-size: 1.3rem; font-weight: 900; }
+    .green { color: #1a7a3a; } .red { color: #cc0000; } .orange { color: #b34d00; }
+    .empty { color: #aaa; font-style: italic; padding: 10px 12px; font-size: 0.85rem; }
+    .footer { margin-top: 30px; font-size: 0.75rem; color: #888; border-top: 1px solid #ccc; padding-top: 8px; }
+    ${ajustes.length > 0 ? `.ajuste-item { display:flex; justify-content:space-between; padding:6px 12px; font-size:0.83rem; border-bottom:1px solid #eee; }` : ''}
+  </style></head><body>
+  <h1>⚽ Pelada KF — Mensalidades ${nomeMes} ${ano}</h1>
+  <div class="sub">Gerado em ${new Date().toLocaleString('pt-BR')} · Mensalidade: R$ ${(finData.mensalidade||25).toFixed(2)}</div>
+
+  <div class="resumo">
+    <div class="box"><div class="box-val green">${pagos.length}</div><div>Pagaram</div></div>
+    <div class="box"><div class="box-val red">${pendentes.length}</div><div>Pendentes</div></div>
+    <div class="box"><div class="box-val red">${emAtraso.length}</div><div>Em Atraso</div></div>
+    <div class="box"><div class="box-val green">R$ ${totalFinal.toFixed(2)}</div><div>Total Arrecadado</div></div>
+  </div>
+
+  <h2 class="verde">✅ Pagaram — ${pagos.length} jogador(es)</h2>
+  ${pagos.length > 0 ? `
+  <table>
+    <tr><th>#</th><th>Jogador</th><th>Valor</th></tr>
+    ${pagos.map((p,i) => `<tr><td>${i+1}</td><td>${esc(p.nome)}</td><td>R$ ${(finData.mensalidade||25).toFixed(2)}</td></tr>`).join('')}
+  </table>` : `<div class="empty">Nenhum pagamento registrado.</div>`}
+
+  <h2 class="vermelho">⏳ Pendentes este mês — ${soPendenteSemAtraso.length} jogador(es)</h2>
+  ${soPendenteSemAtraso.length > 0 ? `
+  <table>
+    <tr><th>#</th><th>Jogador</th></tr>
+    ${soPendenteSemAtraso.map((p,i) => `<tr><td>${i+1}</td><td>${esc(p.nome)}</td></tr>`).join('')}
+  </table>` : `<div class="empty">Nenhum jogador apenas pendente.</div>`}
+
+  <h2 class="laranja">⚠️ Em Atraso (2+ meses) — ${emAtraso.length} jogador(es)</h2>
+  ${emAtraso.length > 0 ? `
+  <table>
+    <tr><th>#</th><th>Jogador</th><th>Meses em atraso</th></tr>
+    ${emAtraso.map(({p,atraso},i) => `<tr><td>${i+1}</td><td>${esc(p.nome)}</td><td style="color:#b34d00;font-weight:700">${atraso} ${atraso===1?'mês':'meses'}</td></tr>`).join('')}
+  </table>` : `<div class="empty">✅ Nenhum jogador em atraso!</div>`}
+
+  ${ajustes.length > 0 ? `
+  <h2 style="margin-top:22px;font-size:1rem;padding:6px 12px;border-radius:6px;background:#fffbe6;color:#7a5a00;border-left:4px solid #f4c430">🔧 Ajustes de Saldo</h2>
+  ${ajustes.map(a => `<div class="ajuste-item"><span>${esc(a.desc)}</span><span style="font-weight:700;color:${a.valor>=0?'#1a7a3a':'#cc0000'}">${a.valor>=0?'+':''}R$ ${a.valor.toFixed(2)}</span></div>`).join('')}
+  <div style="text-align:right;padding:6px 12px;font-size:0.85rem;font-weight:700">
+    Total com ajustes: R$ ${totalFinal.toFixed(2)}
+  </div>` : ''}
+
+  <div class="footer">Controle de Pelada KF · ${nomeMes} ${ano} · Relatório de Mensalidades</div>
+  </body></html>`);
+  win.document.close();
+  win.print();
 }
 
 // ─── DESPESAS / ENTRADAS TOGGLE ────────────────────────────────────────────
@@ -1796,6 +1996,7 @@ async function zerarLancamentos() {
   finData.pagamentos = {};
   finData.despesas = {};
   finData.entradas = {};
+  finData.ajustes = {};
   await saveFinData();
   initFinanceiro();
   toast('🗑️ Todos os lançamentos foram zerados!');
@@ -1882,23 +2083,25 @@ function imprimirRelatorioAnual() {
   const ativos = players.filter(p => p.ativo !== false);
   if (!finData.entradas) finData.entradas = {};
 
-  let recMensTotal = 0, recExtraTotal = 0, despTotalGeral = 0;
+  let recMensTotal = 0, recExtraTotal = 0, despTotalGeral = 0, ajusteTotalGeral = 0;
   const mesesData = NOMES_MESES.map((nomeMes, idx) => {
     const m = String(idx + 1).padStart(2, '0');
     const key = `${anoFiltro}-${m}`;
     const pag = finData.pagamentos[key] || {};
     const entradas = (finData.entradas[key] || []);
     const despesas = (finData.despesas[key] || []);
+    const ajustesList = ((finData.ajustes || {})[key] || []);
     const pagos = ativos.filter(p => !!pag[p.id]);
     const pendentes = ativos.filter(p => !pag[p.id]);
     const recMens = pagos.length * (finData.mensalidade || 25);
     const recExtra = entradas.reduce((s, e) => s + e.valor, 0);
     const desp = despesas.reduce((s, d) => s + d.valor, 0);
-    recMensTotal += recMens; recExtraTotal += recExtra; despTotalGeral += desp;
-    return { nomeMes, key, pagos, pendentes, recMens, recExtra, desp, saldo: recMens + recExtra - desp, entradas, despesas };
+    const ajuste = ajustesList.reduce((s, a) => s + a.valor, 0);
+    recMensTotal += recMens; recExtraTotal += recExtra; despTotalGeral += desp; ajusteTotalGeral += ajuste;
+    return { nomeMes, key, pagos, pendentes, recMens, recExtra, desp, ajuste, saldo: recMens + recExtra + ajuste - desp, entradas, despesas };
   });
 
-  const saldoFinal = recMensTotal + recExtraTotal - despTotalGeral;
+  const saldoFinal = recMensTotal + recExtraTotal + ajusteTotalGeral - despTotalGeral;
   const win = window.open('', '_blank');
   win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>Relatório Anual ${anoFiltro}</title>
