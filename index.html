@@ -2032,7 +2032,9 @@ function imprimirRelatorioMensal() {
   const recMens  = pagos.length * (finData.mensalidade || 25);
   const recExtra = entradas.reduce((s, e) => s + e.valor, 0);
   const despTotal = despesas.reduce((s, d) => s + d.valor, 0);
-  const saldo = recMens + recExtra - despTotal;
+  const ajustes  = (finData.ajustes || {})[key] || [];
+  const ajusteTotal = ajustes.reduce((s, a) => s + a.valor, 0);
+  const saldo = recMens + recExtra + ajusteTotal - despTotal;
 
   const win = window.open('', '_blank');
   win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -2057,8 +2059,9 @@ function imprimirRelatorioMensal() {
   <div class="resumo">
     <div class="box"><div class="box-val green">R$ ${recMens.toFixed(2)}</div><div>Mensalidades</div></div>
     <div class="box"><div class="box-val green">R$ ${recExtra.toFixed(2)}</div><div>Entradas Avulsas</div></div>
+    ${ajusteTotal !== 0 ? `<div class="box"><div class="box-val ${ajusteTotal >= 0 ? 'green' : 'red'}">${ajusteTotal >= 0 ? '+' : ''}R$ ${ajusteTotal.toFixed(2)}</div><div>Ajustes</div></div>` : ''}
     <div class="box"><div class="box-val red">R$ ${despTotal.toFixed(2)}</div><div>Despesas</div></div>
-    <div class="box"><div class="box-val ${saldo >= 0 ? 'green' : 'red'}">R$ ${saldo.toFixed(2)}</div><div>Saldo</div></div>
+    <div class="box" style="grid-column:1/-1"><div class="box-val ${saldo >= 0 ? 'green' : 'red'}">R$ ${saldo.toFixed(2)}</div><div>Saldo</div></div>
   </div>
 
   <h2>✅ Mensalidades Pagas (${pagos.length})</h2>
@@ -2083,6 +2086,12 @@ function imprimirRelatorioMensal() {
   <h2>🧾 Despesas</h2>
   <table><tr><th>#</th><th>Descrição</th><th>Valor</th></tr>
   ${despesas.map((d,i) => `<tr><td>${i+1}</td><td>${esc(d.desc)}</td><td>-R$ ${d.valor.toFixed(2)}</td></tr>`).join('')}
+  </table>` : ''}
+
+  ${ajustes.length > 0 ? `
+  <h2>🔧 Ajustes de Saldo</h2>
+  <table><tr><th>#</th><th>Descrição</th><th>Valor</th></tr>
+  ${ajustes.map((a,i) => `<tr><td>${i+1}</td><td>${esc(a.desc)}</td><td style="color:${a.valor>=0?'#1a7a3a':'#cc0000'};font-weight:700">${a.valor>=0?'+':''}R$ ${a.valor.toFixed(2)}</td></tr>`).join('')}
   </table>` : ''}
 
   <div class="footer">Controle de Pelada KF · Relatório gerado automaticamente</div>
