@@ -1669,7 +1669,9 @@ function renderHistorico(anoFiltro) {
 
   const todasChaves = new Set([
     ...Object.keys(finData.pagamentos),
-    ...Object.keys(finData.despesas)
+    ...Object.keys(finData.despesas),
+    ...Object.keys(finData.entradas  || {}),
+    ...Object.keys(finData.ajustes   || {}),
   ]);
 
   const chavesFiltradas = [...todasChaves]
@@ -1685,10 +1687,12 @@ function renderHistorico(anoFiltro) {
     const [a, m] = key.split('-');
     const pag = finData.pagamentos[key] || {};
     const pagos = Object.values(pag).filter(Boolean).length;
-    const rec  = pagos * (finData.mensalidade || 25);
-    const desp = (finData.despesas[key] || []).reduce((s,d) => s + d.valor, 0);
-    const sal  = rec - desp;
-    const nomeMes = NOMES_MESES[parseInt(m)-1];
+    const rec      = pagos * (finData.mensalidade || 25);
+    const desp     = (finData.despesas[key] || []).reduce((s,d) => s + d.valor, 0);
+    const ent      = ((finData.entradas || {})[key] || []).reduce((s,e) => s + e.valor, 0);
+    const ajuste   = ((finData.ajustes  || {})[key] || []).reduce((s,a) => s + a.valor, 0);
+    const sal      = rec + ent + ajuste - desp;
+    const nomeMes  = NOMES_MESES[parseInt(m)-1];
     return `
       <div class="month-history-item">
         <div>
@@ -1697,7 +1701,9 @@ function renderHistorico(anoFiltro) {
         </div>
         <div style="text-align:right">
           <div style="font-size:0.8rem;color:var(--green)">+R$ ${rec.toFixed(2)}</div>
-          ${desp > 0 ? `<div style="font-size:0.75rem;color:var(--red)">-R$ ${desp.toFixed(2)}</div>` : ''}
+          ${ent > 0    ? `<div style="font-size:0.75rem;color:#00cc77">+R$ ${ent.toFixed(2)} avulso</div>` : ''}
+          ${ajuste !== 0 ? `<div style="font-size:0.75rem;color:${ajuste>=0?'#00cc77':'var(--red)'}">${ajuste>=0?'+':''}R$ ${ajuste.toFixed(2)} ajuste</div>` : ''}
+          ${desp > 0   ? `<div style="font-size:0.75rem;color:var(--red)">-R$ ${desp.toFixed(2)}</div>` : ''}
           <div style="font-size:0.85rem;font-weight:900;color:${sal>=0?'var(--green)':'var(--red)'}">= R$ ${sal.toFixed(2)}</div>
         </div>
       </div>`;
@@ -1929,6 +1935,13 @@ async function addEntrada() {
   document.getElementById('input-entrada-view-ano').value = anoInput;
   document.getElementById('sel-mes-entrada-view').value = mesInput;
   renderEntradas();
+  // Sincroniza campos do Resumo para garantir que a re-renderização use o mesmo mês/ano do lançamento
+  const inputResAno  = document.getElementById('input-resumo-ano');
+  const selResMes    = document.getElementById('sel-mes-resumo');
+  const inputResAnoG = document.getElementById('input-resumo-ano-geral');
+  if (inputResAno)  inputResAno.value  = anoInput;
+  if (selResMes)    selResMes.value    = mesInput;
+  if (inputResAnoG) inputResAnoG.value = anoInput;
   renderResumo();
   renderResumoGeral();
   toast('💚 Entrada registrada!');
