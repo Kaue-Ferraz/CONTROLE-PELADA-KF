@@ -1,5 +1,35 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+  <script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+import { getAuth, onAuthStateChanged }
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+
+const firebaseConfig = {
+apiKey: "AIzaSyA4PdOpzB7pIz8hWPBkopjKI5ZnYl5rZaY",
+authDomain: "controle-pelada-kf.firebaseapp.com",
+projectId: "controle-pelada-kf",
+storageBucket: "controle-pelada-kf.firebasestorage.app",
+messagingSenderId: "468781176061",
+appId: "1:468781176061:web:009375a0a3a63706359a94"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+
+onAuthStateChanged(auth,(user)=>{
+
+if(!user){
+window.location.href="login.html";
+}
+
+});
+
+</script>
 <head>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1e7d32">
