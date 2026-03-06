@@ -1,63 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <script type="module">
-    import { auth, db } from "./firebase.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-onAuthStateChanged(auth, async (user) => {
-
-if(!user){
-
-window.location.href="login.html"
-
-}
-
-const ref = doc(db,"usuarios",user.uid)
-const snap = await getDoc(ref)
-
-const dados = snap.data()
-
-if(dados.plano === "free"){
-
-document.getElementById("financeiro").style.display="none"
-
-}
-
-})
-
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-
-import { getAuth, onAuthStateChanged }
-from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-
-const firebaseConfig = {
-apiKey: "AIzaSyA4PdOpzB7pIz8hWPBkopjKI5ZnYl5rZaY",
-authDomain: "controle-pelada-kf.firebaseapp.com",
-projectId: "controle-pelada-kf",
-storageBucket: "controle-pelada-kf.firebasestorage.app",
-messagingSenderId: "468781176061",
-appId: "1:468781176061:web:009375a0a3a63706359a94"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-
-
-onAuthStateChanged(auth,(user)=>{
-
-if(!user){
-window.location.href="login.html";
-}
-
-});
-
-</script>
 <head>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1e7d32">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0d3b1e">
@@ -561,44 +504,7 @@ window.location.href="login.html";
 <div class="toast" id="toast"></div>
 
 <script>
-import { getFirestore, doc, setDoc } 
-from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-const db = getFirestore(app);
-  createUserWithEmailAndPassword(auth,email,senha)
-.then(async(userCredential)=>{
-
-const user = userCredential.user;
-
-await setDoc(doc(db,"usuarios",user.uid),{
-email: email,
-plano: "free",
-dataCadastro: new Date()
-});
-
-alert("Conta criada!");
-
-})
-import { getDoc } 
-from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-  const docRef = doc(db,"usuarios",user.uid);
-const docSnap = await getDoc(docRef);
-
-if(docSnap.exists()){
-
-const plano = docSnap.data().plano;
-
-if(plano == "premium"){
-console.log("usuario premium");
-}else{
-console.log("usuario free");
-}
-
-}
-if(plano != "premium"){
-alert("Função disponível apenas no plano premium");
-return;
-}
-// ─── STATE ─────────────────────────────────────────────────────────────────daqui pra cima foi questão do login kaue ferraz
+// ─── STATE ─────────────────────────────────────────────────────────────────
 let players = [];
 let selectedNivel = 3;
 const STORAGE_KEY = 'pelada_kf_players';
@@ -1660,61 +1566,6 @@ function toast(msg) {
   renderPlayers();
   document.getElementById('loading').classList.add('hidden');
 })();
-  if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/service-worker.js')
-  .then(function() {
-    console.log("Service Worker registrado");
-  });
-}
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, addDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyA4PdOpzB7pIz8hWPBkopjKI5ZnYl5rZaY",
-  authDomain: "controle-pelada-kf.firebaseapp.com",
-  projectId: "controle-pelada-kf",
-  storageBucket: "controle-pelada-kf.firebasestorage.app",
-  messagingSenderId: "468781176061",
-  appId: "1:468781176061:web:009375a0a3a63706359a94"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-// salvar jogador
-async function salvarJogador(nome){
-  await addDoc(collection(db, "jogadores"), {
-    nome: nome
-  });
-}
-
-// listar jogadores
-async function listarJogadores(){
-  const querySnapshot = await getDocs(collection(db, "jogadores"));
-  querySnapshot.forEach((doc) => {
-    console.log(doc.data());
-  });
-}
-  import { auth, db } from "./firebase.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-onAuthStateChanged(auth, async (user) => {
-
-if(!user){
-window.location.href="login.html"
-return
-}
-
-const ref = doc(db,"usuarios",user.uid)
-const snap = await getDoc(ref)
-
-const dados = snap.data()
-
-console.log("Plano do usuário:",dados.plano)
-
-})
-
 </script>
 </body>
 </html>
