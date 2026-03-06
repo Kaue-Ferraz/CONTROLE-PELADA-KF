@@ -185,6 +185,13 @@
 
   .cfg-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 10px; }
   .cfg-row input { flex: 1; }
+
+  #edit-modal input:focus, #edit-modal select:focus { border-color: var(--green); outline: none; }
+  #edit-modal select {
+    width:100%; background:var(--surface2); border:1px solid var(--border);
+    border-radius:var(--radius-sm); color:var(--text); font-family:'Nunito',sans-serif;
+    font-size:0.95rem; padding:10px 14px; -webkit-appearance:none;
+  }
 </style>
 </head>
 <body>
@@ -608,15 +615,84 @@ function renderPlayers() {
 async function editNivel(id) {
   const p = players.find(x => x.id === id);
   if (!p) return;
-  const n = prompt(`Nível de ${p.nome} (1-5):\n1=Fraco 2=Regular 3=Bom 4=Muito bom 5=Craque`, p.nivel);
-  if (n === null) return;
-  const num = parseInt(n);
-  if (isNaN(num) || num < 1 || num > 5) { toast('Use 1 a 5!'); return; }
-  p.nivel = num;
+
+  // Remove modal anterior se existir
+  document.getElementById('edit-modal')?.remove();
+
+  const [anoAtual, mesAtual] = (p.mesInicio || ((finData.ano || anoSistema()) + '-01')).split('-');
+  const mesesOpts = NOMES_MESES.map((n,i) => {
+    const v = String(i+1).padStart(2,'0');
+    return `<option value="${v}" ${v === mesAtual ? 'selected' : ''}>${n}</option>`;
+  }).join('');
+
+  const modal = document.createElement('div');
+  modal.id = 'edit-modal';
+  modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px`;
+  modal.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;width:100%;max-width:360px">
+      <div style="font-family:'Bebas Neue';font-size:1.2rem;color:var(--green);letter-spacing:2px;margin-bottom:16px">✏️ Editar — ${esc(p.nome)}</div>
+
+      <div style="margin-bottom:12px">
+        <div class="section-label">Nível de habilidade</div>
+        <div style="display:flex;gap:6px" id="edit-nivel-btns">
+          ${[1,2,3,4,5].map(n => `
+            <button onclick="editSelectNivel(${n})" id="edit-n${n}"
+              style="flex:1;padding:10px 4px;border-radius:8px;border:2px solid var(--border);
+                     background:${p.nivel===n?'var(--green)':'var(--surface2)'};
+                     color:${p.nivel===n?'#000':'var(--text-muted)'};
+                     font-family:'Bebas Neue';font-size:1.1rem;cursor:pointer;transition:all .15s">
+              ${n}
+            </button>`).join('')}
+        </div>
+        <div class="nivel-hint" style="margin-top:4px">1=Fraco · 2=Regular · 3=Bom · 4=Muito bom · 5=Craque</div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <div class="section-label">Mês de início da mensalidade</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <select id="edit-mes-ref">${mesesOpts}</select>
+          <input type="number" id="edit-ano-ref" value="${anoAtual}" min="2020" max="2099" placeholder="Ano"
+            style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:10px 14px;font-family:Nunito,sans-serif;font-size:0.95rem;outline:none">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <button onclick="confirmarEditPlayer(${id})" class="btn btn-green" style="flex:1">✅ SALVAR</button>
+        <button onclick="document.getElementById('edit-modal').remove()" class="btn btn-outline" style="flex:1">Cancelar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+  // Guarda nível selecionado no modal
+  window._editNivel = p.nivel;
+}
+
+function editSelectNivel(n) {
+  window._editNivel = n;
+  [1,2,3,4,5].forEach(i => {
+    const btn = document.getElementById('edit-n' + i);
+    if (!btn) return;
+    btn.style.background = i === n ? 'var(--green)' : 'var(--surface2)';
+    btn.style.color      = i === n ? '#000'         : 'var(--text-muted)';
+    btn.style.borderColor= i === n ? 'var(--green)' : 'var(--border)';
+  });
+}
+
+async function confirmarEditPlayer(id) {
+  const p = players.find(x => x.id === id);
+  if (!p) return;
+  const novoNivel = window._editNivel || p.nivel;
+  const novoMes   = document.getElementById('edit-mes-ref').value;
+  const novoAno   = parseInt(document.getElementById('edit-ano-ref').value);
+  if (isNaN(novoAno) || novoAno < 2020 || novoAno > 2099) { toast('Ano inválido!'); return; }
+  p.nivel = novoNivel;
+  p.mesInicio = novoAno + '-' + novoMes;
   await saveData();
+  document.getElementById('edit-modal')?.remove();
   renderPlayers();
   renderPresence();
-  toast('Nível atualizado!');
+  toast('✅ ' + p.nome + ' atualizado!');
 }
 
 async function deletePlayer(id) {
@@ -842,18 +918,17 @@ function mesSistema()  { return new Date().getMonth() + 1; }
 function keyAtual()    { return mesKey(anoSistema(), mesSistema()); }
 
 // ── Quantos meses em atraso levando em conta o mesInicio do jogador ──
-// Regra: conta meses NÃO pagos desde mesInicio até 2 meses ANTES do mês atual.
-// Se o jogador não tiver mesInicio definido, não tem pendência (só Pendente).
-// Alerta (⚠️) só aparece se tiver 2+ meses em atraso.
+// Alerta (⚠️) só aparece se tiver 2+ meses consecutivos em atraso contando de trás pra frente.
+// Jogador sem mesInicio: usa Janeiro do ano configurado como padrão.
 function mesesEmAtraso(player) {
-  if (!player.mesInicio) return 0; // sem data de início = sem pendência
-
-  const anoRef = anoSistema();
+  const anoRef  = anoSistema();
   const mesRef  = mesSistema();
-  const inicioInt = keyToInt(player.mesInicio);
-  const atualInt  = keyToInt(keyAtual());
 
-  // Não considera o mês atual — avalia apenas os meses anteriores
+  // Define o início: campo salvo ou padrão Janeiro do ano configurado
+  const inicio = player.mesInicio || ((finData.ano || anoRef) + '-01');
+  const inicioInt = keyToInt(inicio);
+
+  // Conta meses CONSECUTIVOS não pagos imediatamente antes do mês atual
   let atraso = 0;
   for (let i = 1; i <= 36; i++) {
     let m = mesRef - i;
@@ -861,9 +936,9 @@ function mesesEmAtraso(player) {
     while (m <= 0) { m += 12; a--; }
     const k = mesKey(a, m);
     const kInt = keyToInt(k);
-    if (kInt < inicioInt) break; // não cobra antes do mês de início
+    if (kInt < inicioInt) break; // antes do início: para
     const pag = finData.pagamentos[k] || {};
-    if (pag[player.id]) break; // achou pagamento, para
+    if (pag[player.id]) break;  // encontrou pagamento: sequência parou
     atraso++;
   }
   return atraso;
@@ -905,6 +980,8 @@ function initFinanceiro() {
   renderDespesas();
   renderResumoGeral();
   renderResumo();
+  // Garante que o toggle visual esteja correto
+  setVisaoResumo(visaoResumo);
 }
 
 function showFinTab(name) {
@@ -916,7 +993,7 @@ function showFinTab(name) {
   tabs[idx].classList.add('active');
   if (name === 'mensalidades') renderMensalidades();
   if (name === 'despesas') renderDespesas();
-  if (name === 'resumo') renderResumo();
+  if (name === 'resumo') { renderResumoGeral(); renderResumo(); }
 }
 
 async function salvarConfigs() {
@@ -928,8 +1005,28 @@ async function salvarConfigs() {
   finData.ano = valAno;
   await saveFinData();
   toast('✅ Configurações salvas!');
+  sincronizarAnoEmTudo(valAno);
+}
+
+// Propaga o ano para todos os campos e re-renderiza tudo
+function sincronizarAnoEmTudo(ano) {
+  // Despesas
+  const dAno = document.getElementById('input-desp-ano');
+  const dvAno = document.getElementById('input-desp-view-ano');
+  const rAno  = document.getElementById('input-resumo-ano');
+  const rgAno = document.getElementById('input-resumo-ano-geral');
+  if (dAno)  dAno.value  = ano;
+  if (dvAno) dvAno.value = ano;
+  if (rAno)  rAno.value  = ano;
+  if (rgAno) rgAno.value = ano;
+
   renderBotoesMeses();
   renderMensalidades();
+  renderDespesas();
+  if (visaoResumo === 'geral')  renderResumoGeral();
+  if (visaoResumo === 'mensal') renderResumo();
+  // Renderiza ambos para manter dados atualizados
+  renderResumoGeral();
   renderResumo();
 }
 
@@ -1059,6 +1156,7 @@ async function addDespesa() {
   document.getElementById('sel-mes-desp-view').value = mesInput;
   renderDespesas();
   renderResumo();
+  renderResumoGeral();
   toast('🧾 Despesa adicionada!');
 }
 
@@ -1068,6 +1166,7 @@ async function delDespesa(key, id) {
   await saveFinData();
   renderDespesas();
   renderResumo();
+  renderResumoGeral();
   toast('Despesa removida.');
 }
 
