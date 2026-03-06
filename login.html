@@ -1,21 +1,58 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>Login - Pelada KF</title>
+<title>Login - Controle Pelada</title>
 </head>
 
 <body>
 
-<h2>Login Pelada KF</h2>
+<h2>Entrar</h2>
 
-<input type="email" id="email" placeholder="Email"><br><br>
-<input type="password" id="senha" placeholder="Senha"><br><br>
+<input id="email" placeholder="Email">
+<input id="senha" type="password" placeholder="Senha">
 
 <button onclick="login()">Entrar</button>
-<button onclick="registrar()">Criar Conta</button>
+<button onclick="criar()">Criar conta</button>
 
-<script type="module" src="app.js"></script>
+<script type="module">
+
+import { auth, db } from "./firebase.js";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+window.criar = async function(){
+
+let email = document.getElementById("email").value
+let senha = document.getElementById("senha").value
+
+const userCredential = await createUserWithEmailAndPassword(auth,email,senha)
+
+const user = userCredential.user
+
+await setDoc(doc(db,"usuarios",user.uid),{
+
+email: email,
+plano: "free",
+status: true
+
+})
+
+alert("Conta criada")
+
+}
+
+window.login = async function(){
+
+let email = document.getElementById("email").value
+let senha = document.getElementById("senha").value
+
+await signInWithEmailAndPassword(auth,email,senha)
+
+window.location.href="index.html"
+
+}
+
+</script>
 
 </body>
 </html>
