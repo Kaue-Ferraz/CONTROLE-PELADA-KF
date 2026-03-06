@@ -1567,11 +1567,11 @@ function toast(msg) {
   renderPlayers();
   document.getElementById('loading').classList.add('hidden');
 })();
-  if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("service-worker.js")
-      .then(() => console.log("Service Worker registrado"))
-      .catch(err => console.log("Erro SW:", err));
+ // if ("serviceWorker" in navigator) {
+ // window.addEventListener("load", () => {
+  //  navigator.serviceWorker.register("service-worker.js")
+   //   .then(() => console.log("Service Worker registrado"))
+    //  .catch(err => console.log("Erro SW:", err));
   });
 }
 </script>
