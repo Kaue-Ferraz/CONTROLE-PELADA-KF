@@ -3465,7 +3465,7 @@ function _removerBloqueio() {
 // ─── copiarPix() ─────────────────────────────────────────────────────────────
 function copiarPix() {
   navigator.clipboard.writeText(PIX_CHAVE).then(() => {
-    showToast('✅ Pix copiado!');
+    toast('✅ Pix copiado!');
   }).catch(() => {
     // Fallback para browsers sem clipboard API
     const el = document.createElement('textarea');
@@ -3474,7 +3474,7 @@ function copiarPix() {
     el.select();
     document.execCommand('copy');
     document.body.removeChild(el);
-    showToast('✅ Pix copiado!');
+    toast('✅ Pix copiado!');
   });
 }
 
@@ -3486,9 +3486,9 @@ async function liberarUsuario() {
   const mesesStr = prompt('📅 Quantos meses de acesso?', '1');
   if (!mesesStr) return;
   const meses = parseInt(mesesStr);
-  if (isNaN(meses) || meses < 1) { showToast('❌ Número de meses inválido.'); return; }
+  if (isNaN(meses) || meses < 1) { toast('❌ Número de meses inválido.'); return; }
 
-  showToast('⏳ Buscando usuário...');
+  toast('⏳ Buscando usuário...');
 
   try {
     const db = window._fbDb;
@@ -3500,7 +3500,7 @@ async function liberarUsuario() {
     });
 
     if (!uidAlvo) {
-      showToast('❌ Usuário não encontrado com esse e-mail.');
+      toast('❌ Usuário não encontrado com esse e-mail.');
       return;
     }
 
@@ -3512,11 +3512,11 @@ async function liberarUsuario() {
     const docRef = window._fbDoc(db, 'users', uidAlvo);
     await window._fbSetDoc(docRef, { liberar: true, validade: validade }, { merge: true });
 
-    showToast(`✅ Acesso liberado até ${validade}!`);
+    toast(`✅ Acesso liberado até ${validade}!`);
     adminCarregarUsuarios();
   } catch(e) {
     console.error(e);
-    showToast('❌ Erro: ' + e.message);
+    toast('❌ Erro: ' + e.message);
   }
 }
 
@@ -3608,7 +3608,7 @@ async function adminSalvarPlano() {
     await window._fbSetDoc(docRef, { liberar: ativo, validade: validade }, { merge: true });
     msgEl.style.color = 'var(--green)';
     msgEl.textContent = `✅ Plano ${ativo ? 'ATIVADO' : 'BLOQUEADO'} até ${validade} com sucesso!`;
-    showToast('✅ Plano salvo!');
+    toast('✅ Plano salvo!');
     adminCarregarUsuarios();
   } catch (e) {
     console.error(e);
@@ -3771,10 +3771,10 @@ async function adminLiberarRapido(uid, btn) {
   try {
     const db = window._fbDb;
     await window._fbSetDoc(window._fbDoc(db, 'users', uid), { liberar: true, validade }, { merge: true });
-    showToast(`✅ ${email} liberado até ${validade}`);
+    toast(`✅ ${email} liberado até ${validade}`);
     adminCarregarUsuarios();
   } catch(e) {
-    showToast('❌ Erro: ' + e.message);
+    toast('❌ Erro: ' + e.message);
   }
 }
 
@@ -3784,10 +3784,10 @@ async function adminBloquear(uid, btn) {
   try {
     const db = window._fbDb;
     await window._fbSetDoc(window._fbDoc(db, 'users', uid), { liberar: false, validade: null }, { merge: true });
-    showToast(`🔒 ${email} bloqueado.`);
+    toast(`🔒 ${email} bloqueado.`);
     adminCarregarUsuarios();
   } catch(e) {
-    showToast('❌ Erro: ' + e.message);
+    toast('❌ Erro: ' + e.message);
   }
 }
 
