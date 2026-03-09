@@ -3492,6 +3492,10 @@ async function liberarUsuario() {
 
     showToast(`✅ Acesso liberado até ${validade}!`);
     adminCarregarUsuarios();
+    // Limpar campos do formulário
+    document.getElementById('admin-uid-input').value = '';
+    document.getElementById('admin-validade').value = '';
+    document.getElementById('admin-msg').textContent = '';
   } catch(e) {
     console.error(e);
     showToast('❌ Erro: ' + e.message);
@@ -3526,6 +3530,14 @@ async function adminSalvarPlano() {
     msgEl.style.color = 'var(--green)';
     msgEl.textContent = `✅ Plano ${ativo ? 'ATIVADO' : 'BLOQUEADO'} até ${validade} com sucesso!`;
     showToast('✅ Plano salvo!');
+    // Recarregar lista e limpar formulário
+    adminCarregarUsuarios();
+    setTimeout(() => {
+      document.getElementById('admin-uid-input').value = '';
+      document.getElementById('admin-plano-ativo').value = 'true';
+      document.getElementById('admin-validade').value = '';
+      msgEl.textContent = '';
+    }, 2500);
   } catch (e) {
     console.error(e);
     msgEl.style.color = 'var(--red)';
@@ -3577,12 +3589,12 @@ function adminRenderizarLista() {
   let html = '';
   filtrados.forEach(({ uid, email, emailSafe, liberado, validade, cor, badge }) => {
     html += `
-      <div style="background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:8px;border:1px solid ${liberado ? '#1a4a2e' : '#3a1a1a'}">
+      <div data-uid="${uid}" style="background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:8px;border:1px solid ${liberado ? '#1a4a2e' : '#3a1a1a'};transition:outline .15s">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <span style="font-weight:700;font-size:0.85rem;color:var(--text);word-break:break-all">${emailSafe}</span>
           <span style="font-size:0.75rem;font-weight:900;color:${cor};white-space:nowrap;margin-left:8px">${badge}</span>
         </div>
-        <div style="font-size:0.65rem;color:var(--text-muted);margin-bottom:8px">Válido até: ${validade || 'Permanente'}</div>
+        <div style="font-size:0.65rem;color:var(--text-muted);margin-bottom:8px">Válido até: ${validade || 'Permanente'} &nbsp;·&nbsp; <span style="font-size:0.6rem;color:#555">${uid.substring(0,12)}…</span></div>
         <div style="display:flex;gap:6px">
           <button onclick="adminLiberarRapido('${uid}', this)" data-email="${emailSafe}" data-meses="1"
             style="flex:1;padding:7px 4px;border-radius:8px;border:none;background:#1db954;color:#000;font-weight:900;font-size:0.72rem;cursor:pointer">
@@ -3592,6 +3604,10 @@ function adminRenderizarLista() {
             style="flex:1;padding:7px 4px;border-radius:8px;border:none;background:#1a8a3a;color:#fff;font-weight:900;font-size:0.72rem;cursor:pointer">
             🔓 +3 meses
           </button>
+          <button onclick="adminSelecionarUsuario('${uid}', ${liberado}, '${validade}')"
+            style="flex:1;padding:7px 4px;border-radius:8px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-weight:900;font-size:0.72rem;cursor:pointer">
+            ✏️ Editar
+          </button>
           <button onclick="adminBloquear('${uid}', this)" data-email="${emailSafe}"
             style="flex:1;padding:7px 4px;border-radius:8px;border:none;background:#3a1a1a;color:#ef4444;font-weight:900;font-size:0.72rem;cursor:pointer">
             🔒 Bloquear
@@ -3600,9 +3616,7 @@ function adminRenderizarLista() {
       </div>`;
   });
 
-  const tmp = document.createElement('div');
-  tmp.innerHTML = html;
-  while (tmp.firstChild) listEl.appendChild(tmp.firstChild);
+  listEl.innerHTML = html;
 }
 
 async function adminCarregarUsuarios() {
@@ -3659,6 +3673,12 @@ function adminSelecionarUsuario(uid, liberar, validade) {
   document.getElementById('admin-validade').value = validade || '';
   document.getElementById('admin-msg').textContent = '👆 Dados carregados. Edite e salve.';
   document.getElementById('admin-msg').style.color = 'var(--gold)';
+
+  // Destacar visualmente o usuário selecionado
+  document.querySelectorAll('#admin-users-list [data-uid]').forEach(el => {
+    el.style.outline = el.dataset.uid === uid ? '2px solid var(--gold)' : '';
+  });
+
   document.getElementById('page-admin').scrollTop = 0;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
