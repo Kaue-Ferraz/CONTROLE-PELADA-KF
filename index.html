@@ -3243,7 +3243,7 @@ async function verificarAcessoFinanceiro(user) {
       window._planoAtivo = true;
       window._trialDiasRestantes = 7;
       _removerBloqueio();
-      _mostrarBannerTrial(7);
+      // Banner/modal serão exibidos após o loading sumir (ver _onAuthChange)
       return;
     }
 
@@ -3265,7 +3265,7 @@ async function verificarAcessoFinanceiro(user) {
       window._planoAtivo = true;
       if (diasRestantes !== null) {
         window._trialDiasRestantes = diasRestantes;
-        _mostrarBannerTrial(diasRestantes);
+        // Banner/modal serão exibidos após o loading sumir (ver _onAuthChange)
         } else {
         }
       _removerBloqueio();
@@ -3854,6 +3854,14 @@ window._onAuthChange = async function(user) {
     }
 
     loading.classList.add('hidden');
+
+    // Mostrar banner/modal de trial APÓS o loading sumir (garante visibilidade no mobile)
+    if (!window._isAdmin && window._trialDiasRestantes !== undefined && window._trialDiasRestantes !== null) {
+      setTimeout(() => {
+        _mostrarBannerTrial(window._trialDiasRestantes);
+      }, 300);
+    }
+
   } else {
     _currentUid = null;
     _currentEmail = '';
