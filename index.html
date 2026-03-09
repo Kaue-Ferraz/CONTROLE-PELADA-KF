@@ -268,7 +268,7 @@
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail }
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, sendPasswordResetEmail }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, doc, getDoc, setDoc, getDocs, collection }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
@@ -296,6 +296,28 @@ window._fbSetDoc    = setDoc;
 window._fbGetDocs   = getDocs;
 window._fbCollection = collection;
 
+// Trata resultado do signInWithRedirect (Google login no mobile)
+// Quando o redirect volta, essa Promise resolve com o usuário logado
+getRedirectResult(auth).then(async (result) => {
+  if (!result || !result.user) return;
+  // Novo usuário via Google no mobile — gravar trialStart se não existir
+  const u = result.user;
+  try {
+    const docRef = doc(db, 'users', u.uid);
+    const snap = await getDoc(docRef);
+    const data = snap.exists() ? snap.data() : {};
+    if (!data.trialStart && !data.validade) {
+      const hoje = new Date().toISOString().split('T')[0];
+      const validade7 = new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0];
+      await setDoc(docRef, { email: u.email, trialStart: hoje, liberar: true, validade: validade7 }, { merge: true });
+    }
+  } catch(e) {
+    console.warn('[Redirect] Falha ao gravar trialStart:', e);
+  }
+}).catch((e) => {
+  if (e.code !== 'auth/popup-closed-by-user') console.error('[Redirect] Erro:', e);
+});
+
 // ── Todas as ações de auth ficam DENTRO do módulo ──────────────────────────
 window._doLogin = async function() {
   const email  = document.getElementById('login-email').value.trim();
@@ -312,8 +334,17 @@ window._doLogin = async function() {
     if (pass !== pass2) { errEl.textContent = '❌ As senhas não conferem.'; btnEl.textContent='CADASTRAR'; btnEl.disabled=false; return; }
     if (pass.length < 6) { errEl.textContent = '❌ Mínimo 6 caracteres na senha.'; btnEl.textContent='CADASTRAR'; btnEl.disabled=false; return; }
     try {
-      await createUserWithEmailAndPassword(auth, email, pass);
-      // O verificarAcessoFinanceiro no onAuthStateChanged cuida de gravar o trial
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      // Gravar trialStart IMEDIATAMENTE após o cadastro, sem depender do onAuthStateChanged
+      // Isso evita race condition no mobile onde o fluxo pode ser interrompido
+      try {
+        const hoje = new Date().toISOString().split('T')[0];
+        const validade7 = new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0];
+        const docRef = doc(db, 'users', cred.user.uid);
+        await setDoc(docRef, { email, trialStart: hoje, liberar: true, validade: validade7 }, { merge: true });
+      } catch(dbErr) {
+        console.warn('[Cadastro] Falha ao gravar trialStart direto, o verificarAcessoFinanceiro vai tentar novamente:', dbErr);
+      }
     } catch(e) {
       errEl.textContent = window._fbError(e.code);
       btnEl.textContent = 'CADASTRAR'; btnEl.disabled = false;
@@ -342,7 +373,13 @@ window._doGoogleLogin = async function() {
   const errEl = document.getElementById('login-error');
   errEl.textContent = '';
   try {
-    await signInWithPopup(auth, googleProvider);
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobile) {
+      // No mobile, redirect é mais confiável que popup
+      await signInWithRedirect(auth, googleProvider);
+    } else {
+      await signInWithPopup(auth, googleProvider);
+    }
   } catch(e) {
     if (e.code !== 'auth/popup-closed-by-user') errEl.textContent = window._fbError(e.code);
   }
