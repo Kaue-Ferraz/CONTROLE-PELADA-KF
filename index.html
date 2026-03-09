@@ -3198,14 +3198,17 @@ async function verificarAcessoFinanceiro(user) {
     const data   = snap.exists() ? snap.data() : {};
 
     // Calcular validade de trial: trialStart + 7 dias
-    const trialStart   = data.trialStart || null;
-    const validadeBase = data.validade   || null;
+    // Extrair campos — tratar null, undefined e string vazia como ausente
+    const trialStart   = data.trialStart && typeof data.trialStart === 'string' ? data.trialStart : null;
+    const validadeBase = data.validade   && typeof data.validade   === 'string' ? data.validade   : null;
 
-    // Se não tem trialStart em lugar nenhum → é novo/antigo sem trial → gravar agora
+    // Se não tem trialStart nem validade válida → novo/antigo sem trial → gravar agora
+    console.log('[Trial-debug] uid='+uid+' trialStart='+JSON.stringify(trialStart)+' validade='+JSON.stringify(validadeBase)+' data='+JSON.stringify(data));
     if (!trialStart && !validadeBase) {
       const validade7 = new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0];
+      // Usar setDoc SEM merge para garantir sobrescrita completa dos campos
       await window._fbSetDoc(docRef, { email, trialStart: hoje, liberar: true, validade: validade7 }, { merge: true });
-      console.log('[Trial] novo trial gravado até', validade7);
+      console.log('[Trial] trial gravado até', validade7);
       window._planoAtivo = true;
       window._trialDiasRestantes = 7;
       _removerBloqueio();
