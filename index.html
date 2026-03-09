@@ -309,16 +309,19 @@ window._doLogin = async function() {
     if (pass !== pass2) { errEl.textContent = '❌ As senhas não conferem.'; btnEl.textContent='CADASTRAR'; btnEl.disabled=false; return; }
     if (pass.length < 6) { errEl.textContent = '❌ Mínimo 6 caracteres na senha.'; btnEl.textContent='CADASTRAR'; btnEl.disabled=false; return; }
     try {
+      // Sinalizar que estamos em processo de cadastro (evita race condition com onAuthStateChanged)
+      window._cadastrando = true;
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
-      // Criar documento do usuário com trial de 7 dias (liberar:true + validade = hoje+7)
+      // Criar documento ANTES que onAuthStateChanged processe o usuário
       try {
         const db = window._fbDb;
         const uRef = window._fbDoc(db, 'users', cred.user.uid);
         const hoje = new Date();
         const trialStart = hoje.toISOString().split('T')[0];
         const validade = new Date(hoje.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        await window._fbSetDoc(uRef, { email: email, liberar: true, validade: validade, trialStart: trialStart }, { merge: true });
+        await window._fbSetDoc(uRef, { email: email, liberar: true, validade: validade, trialStart: trialStart });
       } catch(dbErr) { console.warn('Erro ao criar doc usuário:', dbErr); }
+      window._cadastrando = false;
     } catch(e) {
       errEl.textContent = window._fbError(e.code);
       btnEl.textContent = 'CADASTRAR'; btnEl.disabled = false;
@@ -3686,6 +3689,15 @@ window._onAuthChange = async function(user) {
   const nameBar     = document.getElementById('pelada-name-bar');
 
   if (user) {
+    // Aguardar cadastro terminar de gravar o documento (evita race condition)
+    if (window._cadastrando) {
+      await new Promise(resolve => {
+        const check = setInterval(() => {
+          if (!window._cadastrando) { clearInterval(check); resolve(); }
+        }, 100);
+      });
+    }
+
     _currentUid = user.uid;
     _currentEmail = user.email || '';
     loginScreen.classList.add('hidden');
@@ -3704,13 +3716,21 @@ window._onAuthChange = async function(user) {
       await verificarAcessoFinanceiro(user);
       await loadFinData();
       await loadPeladaName();
-      // Garantir documento usuarios/{uid} sempre atualizado com email e trialStart
+      // Garantir documento usuarios/{uid} sempre atualizado — nunca sobrescrever liberar/validade já definidos
       const uRef = window._fbDoc(window._fbDb, 'users', user.uid);
       const uSnap = await window._fbGetDoc(uRef);
       const uData = uSnap.exists() ? uSnap.data() : {};
+      const hoje7 = new Date().toISOString().split('T')[0];
       const patchData = { email: user.email || '' };
+      // Só definir trialStart se ainda não existir
       if (!uData.trialStart) {
-        patchData.trialStart = new Date().toISOString().split('T')[0];
+        patchData.trialStart = hoje7;
+      }
+      // Só definir liberar/validade se ainda não existirem (nunca sobrescrever)
+      if (!('liberar' in uData)) {
+        const validadeTrial = new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        patchData.liberar = true;
+        patchData.validade = validadeTrial;
       }
       await window._fbSetDoc(uRef, patchData, { merge: true });
 
