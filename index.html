@@ -3379,37 +3379,44 @@ function _mostrarBannerTrial(diasRestantes) {
   banner.style.cssText = [
     'background:' + cor,
     'color:#000',
-    'padding:8px 16px',
+    'padding:9px 16px',
     'text-align:center',
     'font-size:0.78rem',
     'font-weight:700',
-    'border-radius:8px',
-    'margin-top:8px',
     'display:flex',
     'align-items:center',
     'justify-content:center',
     'gap:8px',
-    'flex-wrap:wrap'
+    'flex-wrap:wrap',
+    'width:100%',
+    'box-sizing:border-box'
   ].join(';');
-  banner.innerHTML = `<span>${texto}</span><button onclick="(function(){ document.getElementById('trial-banner').remove(); var h=document.querySelector('.header'); var t=document.querySelector('.tabs'); if(h&&t) t.style.top=h.offsetHeight+'px'; })()" style="background:rgba(0,0,0,0.15);border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:0.75rem;color:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>`;
+  banner.innerHTML = `<span>${texto}</span><button onclick="(function(){ document.getElementById('trial-banner').remove(); _ajustarTopTabs(); })()" style="background:rgba(0,0,0,0.15);border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:0.8rem;color:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1">✕</button>`;
 
   // Inserir o banner dentro do header (que já é sticky) para garantir visibilidade no mobile
   const header = document.querySelector('.header');
   if (header) {
     header.appendChild(banner);
-    // Ajustar o top das tabs para compensar a altura adicional do header
-    requestAnimationFrame(() => {
-      const tabsEl = document.querySelector('.tabs');
-      if (tabsEl) tabsEl.style.top = header.offsetHeight + 'px';
-    });
   } else {
     const tabs = document.querySelector('.tabs');
-    if (tabs) tabs.insertAdjacentElement('afterend', banner);
+    if (tabs) tabs.insertAdjacentElement('beforebegin', banner);
     else document.body.prepend(banner);
   }
 
+  // Aguardar DOM estabilizar antes de ajustar posição das tabs (mais confiável no mobile)
+  setTimeout(_ajustarTopTabs, 100);
+  setTimeout(_ajustarTopTabs, 400);
+
   // Modal de aviso — aparece sempre no primeiro login do dia ou quando tem 7 dias (novo trial)
   _mostrarModalTrial(diasRestantes);
+}
+
+function _ajustarTopTabs() {
+  const header = document.querySelector('.header');
+  const tabsEl = document.querySelector('.tabs');
+  if (header && tabsEl) {
+    tabsEl.style.top = header.offsetHeight + 'px';
+  }
 }
 
 // ─── _mostrarModalTrial(diasRestantes) ───────────────────────────────────────
