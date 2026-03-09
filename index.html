@@ -3330,29 +3330,44 @@ function mostrarTelaPremium({ trialExpirado = false } = {}) {
 
 // ─── _mostrarBannerTrial(diasRestantes) ──────────────────────────────────────
 function _mostrarBannerTrial(diasRestantes) {
-  // Remove banner anterior se existir
-  const old = document.getElementById('trial-banner');
-  if (old) old.remove();
-
-  // Só mostra nos últimos 3 dias ou se for o primeiro acesso (7 dias)
-  if (diasRestantes > 3 && diasRestantes < 7) return;
+  const existing = document.getElementById('trial-banner');
+  if (existing) existing.remove();
 
   const cor   = diasRestantes <= 1 ? '#ef4444' : diasRestantes <= 3 ? '#f4c430' : '#1db954';
-  const texto = diasRestantes === 7
-    ? '🎉 Teste grátis ativado! Você tem 7 dias para experimentar o Caixa.'
+  const texto = diasRestantes >= 7
+    ? '🎉 Teste grátis ativado! Você tem 7 dias para usar o Caixa.'
     : diasRestantes === 1
-      ? '⚠️ Último dia do seu teste gratuito! Assine para não perder o acesso.'
-      : `⏳ Seu teste gratuito termina em ${diasRestantes} dias.`;
+      ? '⚠️ Último dia do teste gratuito! Assine para não perder o acesso.'
+      : `⏳ Teste gratuito: ${diasRestantes} dias restantes.`;
 
   const banner = document.createElement('div');
   banner.id = 'trial-banner';
-  banner.style.cssText = `background:${cor};color:${diasRestantes <= 3 ? '#000' : '#000'};padding:8px 16px;text-align:center;font-size:0.78rem;font-weight:700;position:relative;z-index:98;`;
-  banner.innerHTML = `${texto} <button onclick="document.getElementById('trial-banner').remove()" style="background:none;border:none;cursor:pointer;font-size:0.9rem;margin-left:8px;color:rgba(0,0,0,0.5);vertical-align:middle">✕</button>`;
+  // position:sticky abaixo das tabs fixas para aparecer no mobile
+  banner.style.cssText = [
+    'background:' + cor,
+    'color:#000',
+    'padding:9px 16px',
+    'text-align:center',
+    'font-size:0.8rem',
+    'font-weight:700',
+    'position:sticky',
+    'top:122px',       // abaixo do header(~80px) + tabs(~42px)
+    'z-index:97',
+    'box-shadow:0 2px 6px rgba(0,0,0,0.3)',
+    'display:flex',
+    'align-items:center',
+    'justify-content:center',
+    'gap:8px',
+    'flex-wrap:wrap'
+  ].join(';');
+  banner.innerHTML = `<span>${texto}</span><button onclick="document.getElementById('trial-banner').remove()" style="background:rgba(0,0,0,0.15);border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:0.75rem;color:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>`;
 
-  // Inserir após a barra de pelada-name-bar
-  const nameBar = document.getElementById('pelada-name-bar');
-  if (nameBar && nameBar.nextSibling) {
-    nameBar.parentNode.insertBefore(banner, nameBar.nextSibling);
+  // Inserir logo após as .tabs para ficar visível em mobile e desktop
+  const tabs = document.querySelector('.tabs');
+  if (tabs && tabs.nextSibling) {
+    tabs.parentNode.insertBefore(banner, tabs.nextSibling);
+  } else if (tabs) {
+    tabs.parentNode.appendChild(banner);
   } else {
     document.body.prepend(banner);
   }
