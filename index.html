@@ -998,21 +998,21 @@ onAuthStateChanged(auth, user => {
 <!-- ADMIN -->
 <div class="page" id="page-admin">
 
-  <!-- Card: Editar plano -->
+  <!-- Card: Gerenciar por e-mail -->
   <div class="card">
     <div class="card-title">🛡️ Gerenciar Plano</div>
-    <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:14px;line-height:1.6">
-      Cole o UID do Firebase do usuário (ou clique em um usuário abaixo) e defina o plano.
-    </div>
-
-    <!-- Botão rápido liberar por email -->
-    <button class="btn btn-green" onclick="liberarUsuario()" style="margin-bottom:14px;width:100%">🔓 LIBERAR ACESSO POR E-MAIL</button>
 
     <div style="margin-bottom:10px">
-      <div class="section-label">UID do usuário</div>
-      <input type="text" id="admin-uid-input" placeholder="Cole ou selecione abaixo...">
+      <div class="section-label">E-mail do usuário</div>
+      <input type="email" id="admin-email-input" placeholder="usuario@email.com..." autocomplete="off"
+        oninput="adminBuscarPorEmail(this.value)">
+      <div id="admin-email-feedback" style="font-size:0.7rem;margin-top:4px;min-height:16px;color:var(--text-muted)"></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+
+    <!-- Campo UID oculto — usado internamente -->
+    <input type="hidden" id="admin-uid-input">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
       <div>
         <div class="section-label">Status do plano</div>
         <select id="admin-plano-ativo">
@@ -1025,6 +1025,15 @@ onAuthStateChanged(auth, user => {
         <input type="date" id="admin-validade">
       </div>
     </div>
+
+    <!-- Botões rápidos de período -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:12px">
+      <button onclick="adminAddMeses(1)"  style="padding:8px 4px;border-radius:8px;border:1px solid var(--green);background:transparent;color:var(--green);font-weight:900;font-size:0.75rem;cursor:pointer">+1 mês</button>
+      <button onclick="adminAddMeses(3)"  style="padding:8px 4px;border-radius:8px;border:1px solid var(--green);background:transparent;color:var(--green);font-weight:900;font-size:0.75rem;cursor:pointer">+3 meses</button>
+      <button onclick="adminAddMeses(6)"  style="padding:8px 4px;border-radius:8px;border:1px solid var(--blue);background:transparent;color:#60a5fa;font-weight:900;font-size:0.75rem;cursor:pointer">+6 meses</button>
+      <button onclick="adminAddMeses(12)" style="padding:8px 4px;border-radius:8px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-weight:900;font-size:0.75rem;cursor:pointer">+1 ano</button>
+    </div>
+
     <button class="btn btn-green" onclick="adminSalvarPlano()">💾 SALVAR PLANO</button>
     <div id="admin-msg" style="margin-top:10px;font-size:0.8rem;text-align:center;min-height:20px"></div>
   </div>
@@ -3456,63 +3465,96 @@ function copiarPix() {
   });
 }
 
-// ─── liberarUsuario() — Admin libera por email ────────────────────────────────
-async function liberarUsuario() {
-  const emailAlvo = prompt('📧 Digite o e-mail do usuário a liberar:');
-  if (!emailAlvo || !emailAlvo.trim()) return;
+// ─── ADMIN: busca UID pelo email em tempo real ──────────────────────────────
+let _adminBuscarTimer = null;
+function adminBuscarPorEmail(emailDigitado) {
+  const feedbackEl = document.getElementById('admin-email-feedback');
+  const uidInput   = document.getElementById('admin-uid-input');
+  uidInput.value   = '';
+  clearTimeout(_adminBuscarTimer);
 
-  const mesesStr = prompt('📅 Quantos meses de acesso?', '1');
-  if (!mesesStr) return;
-  const meses = parseInt(mesesStr);
-  if (isNaN(meses) || meses < 1) { showToast('❌ Número de meses inválido.'); return; }
+  if (!emailDigitado || emailDigitado.length < 4) {
+    feedbackEl.textContent = '';
+    return;
+  }
 
-  showToast('⏳ Buscando usuário...');
+  feedbackEl.style.color = 'var(--text-muted)';
+  feedbackEl.textContent = '🔍 Buscando...';
 
-  try {
-    const db = window._fbDb;
-    // Buscar usuário pelo email na coleção usuarios
-    const snap = await window._fbGetDocs(window._fbCollection(db, 'users'));
-    let uidAlvo = null;
-    snap.forEach(docSnap => {
-      if (docSnap.data().email === emailAlvo.trim()) uidAlvo = docSnap.id;
-    });
-
-    if (!uidAlvo) {
-      showToast('❌ Usuário não encontrado com esse e-mail.');
+  _adminBuscarTimer = setTimeout(async () => {
+    // Primeiro tenta encontrar na lista já carregada (mais rápido)
+    const encontrado = _adminUsuarios.find(u => u.email.toLowerCase() === emailDigitado.trim().toLowerCase());
+    if (encontrado) {
+      uidInput.value = encontrado.uid;
+      document.getElementById('admin-plano-ativo').value = encontrado.liberado ? 'true' : 'false';
+      document.getElementById('admin-validade').value    = encontrado.validade || '';
+      feedbackEl.style.color = 'var(--green)';
+      feedbackEl.textContent = `✅ Usuário encontrado — válido até: ${encontrado.validade || 'Permanente'}`;
       return;
     }
+    // Se não está na lista, busca no Firestore
+    try {
+      const db   = window._fbDb;
+      const snap = await window._fbGetDocs(window._fbCollection(db, 'users'));
+      let achou  = null;
+      snap.forEach(docSnap => {
+        const d = docSnap.data();
+        if ((d.email || '').toLowerCase() === emailDigitado.trim().toLowerCase()) {
+          achou = { uid: docSnap.id, ...d };
+        }
+      });
+      if (achou) {
+        uidInput.value = achou.uid;
+        const hoje = new Date().toISOString().split('T')[0];
+        const liberado = achou.liberar === true && achou.validade >= hoje;
+        document.getElementById('admin-plano-ativo').value = liberado ? 'true' : 'false';
+        document.getElementById('admin-validade').value    = achou.validade || '';
+        feedbackEl.style.color = 'var(--green)';
+        feedbackEl.textContent = `✅ Usuário encontrado — válido até: ${achou.validade || 'Permanente'}`;
+      } else {
+        feedbackEl.style.color = 'var(--red)';
+        feedbackEl.textContent = '❌ Nenhum usuário com esse e-mail.';
+      }
+    } catch(e) {
+      feedbackEl.style.color = 'var(--red)';
+      feedbackEl.textContent = '❌ Erro ao buscar: ' + e.message;
+    }
+  }, 600);
+}
 
-    // Calcular data de validade
-    const hoje = new Date();
-    hoje.setMonth(hoje.getMonth() + meses);
-    const validade = hoje.toISOString().split('T')[0];
-
-    const docRef = window._fbDoc(db, 'users', uidAlvo);
-    await window._fbSetDoc(docRef, { liberar: true, validade: validade }, { merge: true });
-
-    showToast(`✅ Acesso liberado até ${validade}!`);
-    adminCarregarUsuarios();
-  } catch(e) {
-    console.error(e);
-    showToast('❌ Erro: ' + e.message);
-  }
+// ─── ADMIN: adiciona meses à validade atual ─────────────────────────────────
+function adminAddMeses(n) {
+  const validadeInput = document.getElementById('admin-validade');
+  const base = validadeInput.value ? new Date(validadeInput.value + 'T00:00:00') : new Date();
+  // Se a validade já passou, conta a partir de hoje
+  if (base < new Date()) base.setTime(Date.now());
+  base.setMonth(base.getMonth() + n);
+  validadeInput.value = base.toISOString().split('T')[0];
+  // Marcar como ativo automaticamente
+  document.getElementById('admin-plano-ativo').value = 'true';
 }
 
 // ─── ADMIN: SALVAR PLANO ────────────────────────────────────────────────────
 async function adminSalvarPlano() {
   const uid      = document.getElementById('admin-uid-input').value.trim();
+  const email    = document.getElementById('admin-email-input').value.trim();
   const ativo    = document.getElementById('admin-plano-ativo').value === 'true';
   const validade = document.getElementById('admin-validade').value.trim();
   const msgEl    = document.getElementById('admin-msg');
 
+  if (!email) {
+    msgEl.style.color = 'var(--red)';
+    msgEl.textContent = '⚠️ Informe o e-mail do usuário.';
+    return;
+  }
   if (!uid) {
     msgEl.style.color = 'var(--red)';
-    msgEl.textContent = '⚠️ Informe o UID do usuário.';
+    msgEl.textContent = '⚠️ Usuário não encontrado. Verifique o e-mail.';
     return;
   }
   if (!validade || !/^\d{4}-\d{2}-\d{2}$/.test(validade)) {
     msgEl.style.color = 'var(--red)';
-    msgEl.textContent = '⚠️ Validade inválida. Use o formato AAAA-MM-DD.';
+    msgEl.textContent = '⚠️ Defina uma validade válida (use os botões +1 mês, +3 meses...).';
     return;
   }
 
@@ -3522,16 +3564,24 @@ async function adminSalvarPlano() {
   try {
     const db     = window._fbDb;
     const docRef = window._fbDoc(db, 'users', uid);
-    await window._fbSetDoc(docRef, { liberar: ativo, validade: validade }, { merge: true });
+    await window._fbSetDoc(docRef, { liberar: ativo, validade }, { merge: true });
     msgEl.style.color = 'var(--green)';
-    msgEl.textContent = `✅ Plano ${ativo ? 'ATIVADO' : 'BLOQUEADO'} até ${validade} com sucesso!`;
+    msgEl.textContent = `✅ Plano ${ativo ? 'ATIVADO' : 'BLOQUEADO'} até ${validade}!`;
     showToast('✅ Plano salvo!');
+    // Atualizar lista imediatamente
+    await adminCarregarUsuarios();
+    // Atualizar feedback do e-mail com nova validade
+    const feedbackEl = document.getElementById('admin-email-feedback');
+    if (feedbackEl) feedbackEl.textContent = `✅ Válido até: ${validade}`;
   } catch (e) {
     console.error(e);
     msgEl.style.color = 'var(--red)';
     msgEl.textContent = '❌ Erro ao salvar: ' + e.message;
   }
 }
+
+// ─── liberarUsuario() — mantido por compatibilidade (não usado mais na UI)
+function liberarUsuario() {}
 
 // ─── ADMIN: CARREGAR LISTA DE USUÁRIOS ──────────────────────────────────────
 // ─── ADMIN: DADOS E FILTRO ───────────────────────────────────────────────────
@@ -3578,23 +3628,27 @@ function adminRenderizarLista() {
   filtrados.forEach(({ uid, email, emailSafe, liberado, validade, cor, badge }) => {
     html += `
       <div style="background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:8px;border:1px solid ${liberado ? '#1a4a2e' : '#3a1a1a'}">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <span style="font-weight:700;font-size:0.85rem;color:var(--text);word-break:break-all">${emailSafe}</span>
-          <span style="font-size:0.75rem;font-weight:900;color:${cor};white-space:nowrap;margin-left:8px">${badge}</span>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+          <span style="font-weight:700;font-size:0.85rem;color:var(--text);word-break:break-all;flex:1">${emailSafe}</span>
+          <span style="font-size:0.7rem;font-weight:900;color:${cor};white-space:nowrap;margin-left:8px">${badge}</span>
         </div>
         <div style="font-size:0.65rem;color:var(--text-muted);margin-bottom:8px">Válido até: ${validade || 'Permanente'}</div>
         <div style="display:flex;gap:6px">
-          <button onclick="adminLiberarRapido('${uid}', this)" data-email="${emailSafe}" data-meses="1"
+          <button onclick="adminLiberarRapido('${uid}', this)" data-email="${emailSafe}" data-meses="1" data-validade="${validade}"
             style="flex:1;padding:7px 4px;border-radius:8px;border:none;background:#1db954;color:#000;font-weight:900;font-size:0.72rem;cursor:pointer">
-            🔓 +1 mês
+            +1 mês
           </button>
-          <button onclick="adminLiberarRapido('${uid}', this)" data-email="${emailSafe}" data-meses="3"
+          <button onclick="adminLiberarRapido('${uid}', this)" data-email="${emailSafe}" data-meses="3" data-validade="${validade}"
             style="flex:1;padding:7px 4px;border-radius:8px;border:none;background:#1a8a3a;color:#fff;font-weight:900;font-size:0.72rem;cursor:pointer">
-            🔓 +3 meses
+            +3 meses
+          </button>
+          <button onclick="adminSelecionarUsuario('${uid}', ${liberado}, '${validade}', '${emailSafe}')"
+            style="flex:1;padding:7px 4px;border-radius:8px;border:1px solid #444;background:transparent;color:#aaa;font-weight:900;font-size:0.72rem;cursor:pointer">
+            ✏️ Editar
           </button>
           <button onclick="adminBloquear('${uid}', this)" data-email="${emailSafe}"
             style="flex:1;padding:7px 4px;border-radius:8px;border:none;background:#3a1a1a;color:#ef4444;font-weight:900;font-size:0.72rem;cursor:pointer">
-            🔒 Bloquear
+            🔒
           </button>
         </div>
       </div>`;
@@ -3653,42 +3707,59 @@ async function adminCarregarUsuarios() {
   }
 }
 
-function adminSelecionarUsuario(uid, liberar, validade) {
-  document.getElementById('admin-uid-input').value = uid;
+function adminSelecionarUsuario(uid, liberar, validade, email) {
+  document.getElementById('admin-uid-input').value   = uid;
+  document.getElementById('admin-email-input').value = email || '';
   document.getElementById('admin-plano-ativo').value = liberar ? 'true' : 'false';
-  document.getElementById('admin-validade').value = validade || '';
+  document.getElementById('admin-validade').value    = validade || '';
+  const feedbackEl = document.getElementById('admin-email-feedback');
+  if (feedbackEl) {
+    feedbackEl.style.color   = 'var(--green)';
+    feedbackEl.textContent   = '✅ Usuário carregado — válido até: ' + (validade || 'Permanente');
+  }
   document.getElementById('admin-msg').textContent = '👆 Dados carregados. Edite e salve.';
   document.getElementById('admin-msg').style.color = 'var(--gold)';
-  document.getElementById('page-admin').scrollTop = 0;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 async function adminLiberarRapido(uid, btn) {
   const email = btn.dataset.email || uid;
   const meses = parseInt(btn.dataset.meses) || 1;
-  const hoje = new Date();
-  hoje.setMonth(hoje.getMonth() + meses);
-  const validade = hoje.toISOString().split('T')[0];
+  // Estender a partir da validade atual se ainda válida, senão a partir de hoje
+  const validadeAtual = btn.dataset.validade || '';
+  let base = new Date();
+  if (validadeAtual) {
+    const d = new Date(validadeAtual + 'T00:00:00');
+    if (d > base) base = d;
+  }
+  base.setMonth(base.getMonth() + meses);
+  const validade = base.toISOString().split('T')[0];
+  btn.disabled = true;
+  btn.textContent = '⏳';
   try {
     const db = window._fbDb;
     await window._fbSetDoc(window._fbDoc(db, 'users', uid), { liberar: true, validade }, { merge: true });
     showToast(`✅ ${email} liberado até ${validade}`);
-    adminCarregarUsuarios();
+    await adminCarregarUsuarios();
   } catch(e) {
     showToast('❌ Erro: ' + e.message);
+    btn.disabled = false;
   }
 }
 
 async function adminBloquear(uid, btn) {
   const email = btn.dataset.email || uid;
   if (!confirm(`Bloquear acesso de ${email}?`)) return;
+  btn.disabled = true;
+  btn.textContent = '⏳';
   try {
     const db = window._fbDb;
     await window._fbSetDoc(window._fbDoc(db, 'users', uid), { liberar: false, validade: null }, { merge: true });
     showToast(`🔒 ${email} bloqueado.`);
-    adminCarregarUsuarios();
+    await adminCarregarUsuarios();
   } catch(e) {
     showToast('❌ Erro: ' + e.message);
+    btn.disabled = false;
   }
 }
 
