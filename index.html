@@ -3203,12 +3203,9 @@ async function verificarAcessoFinanceiro(user) {
     const validadeBase = data.validade   && typeof data.validade   === 'string' ? data.validade   : null;
 
     // Se não tem trialStart nem validade válida → novo/antigo sem trial → gravar agora
-    console.log('[Trial-debug] uid='+uid+' trialStart='+JSON.stringify(trialStart)+' validade='+JSON.stringify(validadeBase)+' data='+JSON.stringify(data));
     if (!trialStart && !validadeBase) {
       const validade7 = new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0];
-      // Usar setDoc SEM merge para garantir sobrescrita completa dos campos
       await window._fbSetDoc(docRef, { email, trialStart: hoje, liberar: true, validade: validade7 }, { merge: true });
-      console.log('[Trial] trial gravado até', validade7);
       window._planoAtivo = true;
       window._trialDiasRestantes = 7;
       _removerBloqueio();
@@ -3235,17 +3232,14 @@ async function verificarAcessoFinanceiro(user) {
       if (diasRestantes !== null) {
         window._trialDiasRestantes = diasRestantes;
         _mostrarBannerTrial(diasRestantes);
-        console.log('[Trial] dias restantes:', diasRestantes, 'validade:', validadeEfetiva);
-      } else {
-        console.log('[Plano] pago ativo até', validadeEfetiva);
-      }
+        } else {
+        }
       _removerBloqueio();
       return;
     }
 
     // Validade expirada → bloquear
     const foiTrial = !!trialStart;
-    console.log('[Acesso] expirado em', validadeEfetiva, 'trial:', foiTrial);
     window._planoAtivo = false;
     mostrarTelaPremium({ trialExpirado: foiTrial });
 
