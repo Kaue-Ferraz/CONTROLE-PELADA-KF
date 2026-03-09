@@ -3235,9 +3235,11 @@ async function verificarAcessoFinanceiro(user) {
     // Extrair campos — tratar null, undefined e string vazia como ausente
     const trialStart   = data.trialStart && typeof data.trialStart === 'string' ? data.trialStart : null;
     const validadeBase = data.validade   && typeof data.validade   === 'string' ? data.validade   : null;
+    const liberado     = data.liberar;
 
-    // Se não tem trialStart nem validade válida → novo/antigo sem trial → gravar agora
-    if (!trialStart && !validadeBase) {
+    // Se não tem trialStart nem validade válida → novo usuário OU doc incompleto (liberar:false, validade:null)
+    // → iniciar trial de 7 dias agora
+    if (!trialStart && !validadeBase && liberado !== true) {
       const validade7 = new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0];
       await window._fbSetDoc(docRef, { email, trialStart: hoje, liberar: true, validade: validade7 }, { merge: true });
       window._planoAtivo = true;
