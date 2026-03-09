@@ -265,7 +265,7 @@
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail }
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail, sendEmailVerification }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, doc, getDoc, setDoc, getDocs, collection }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
@@ -310,7 +310,9 @@ window._doLogin = async function() {
     if (pass.length < 6) { errEl.textContent = '❌ Mínimo 6 caracteres na senha.'; btnEl.textContent='CADASTRAR'; btnEl.disabled=false; return; }
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
-      // Criar documento do usuário com 7 dias grátis de trial
+      // Enviar email de verificação
+      try { await sendEmailVerification(cred.user); } catch(ve) { console.warn('Erro ao enviar verificação:', ve); }
+      // Criar documento do usuário com 7 dias grátis de trial (liberado após confirmar email)
       try {
         const db = window._fbDb;
         const uRef = window._fbDoc(db, 'users', cred.user.uid);
@@ -319,13 +321,24 @@ window._doLogin = async function() {
         const trialValidade = trialEnd.toISOString().split('T')[0];
         await window._fbSetDoc(uRef, { email: email, liberar: true, validade: trialValidade, trial: true }, { merge: true });
       } catch(dbErr) { console.warn('Erro ao criar doc usuário:', dbErr); }
+      // Fazer logout e pedir confirmação de email
+      await signOut(auth);
+      okEl.textContent = '✅ Conta criada! Confirme seu e-mail antes de entrar.';
+      btnEl.textContent = 'CADASTRAR'; btnEl.disabled = false;
+      return;
     } catch(e) {
       errEl.textContent = window._fbError(e.code);
       btnEl.textContent = 'CADASTRAR'; btnEl.disabled = false;
     }
   } else {
     try {
-      await signInWithEmailAndPassword(auth, email, pass);
+      const loginCred = await signInWithEmailAndPassword(auth, email, pass);
+      if (!loginCred.user.emailVerified) {
+        await signOut(auth);
+        errEl.textContent = '❌ Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.';
+        btnEl.textContent = 'ENTRAR'; btnEl.disabled = false;
+        return;
+      }
     } catch(e) {
       const code = e.code;
       if (code==='auth/wrong-password'||code==='auth/invalid-credential') {
@@ -3264,7 +3277,6 @@ async function verificarAcessoFinanceiro(user) {
 
     if (window._planoAtivo) {
       _removerBloqueio();
-      // Mostrar banner de trial se for usuário em período gratuito
       if (data.trial === true && validade) {
         const diasRestantes = Math.ceil((new Date(validade + 'T23:59:59') - new Date()) / (1000 * 60 * 60 * 24));
         _mostrarBannerTrial(diasRestantes);
@@ -3353,7 +3365,6 @@ function _removerBloqueio() {
   }
 }
 
-// ─── Banner de Trial ──────────────────────────────────────────────────────────
 function _mostrarBannerTrial(diasRestantes) {
   if (document.getElementById('trial-banner')) return;
   const dias = Math.max(0, diasRestantes);
@@ -3361,7 +3372,7 @@ function _mostrarBannerTrial(diasRestantes) {
   const emoji = dias <= 2 ? '⚠️' : '🎁';
   const banner = document.createElement('div');
   banner.id = 'trial-banner';
-  banner.style.cssText = `background:${cor};color:#000;text-align:center;padding:8px 16px;font-size:0.8rem;font-weight:700;letter-spacing:0.5px;position:sticky;top:0;z-index:98;display:flex;align-items:center;justify-content:center;gap:8px;`;
+  banner.style.cssText = `background:${cor};color:#000;text-align:center;padding:8px 16px;font-size:0.8rem;font-weight:700;position:sticky;top:0;z-index:98;display:flex;align-items:center;justify-content:center;gap:8px;`;
   banner.innerHTML = `${emoji} Período gratuito: <strong>${dias} dia${dias !== 1 ? 's' : ''} restante${dias !== 1 ? 's' : ''}</strong> &nbsp;·&nbsp; <span style="text-decoration:underline;cursor:pointer" onclick="showTab('financeiro');setTimeout(()=>{const b=document.getElementById('fin-bloqueio');if(b)b.style.display='flex';},100)">Assinar agora</span>`;
   const userBar = document.getElementById('user-info-bar');
   if (userBar && userBar.parentNode) {
