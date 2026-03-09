@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Pelada KF">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Controle de Pelada KF ⚽</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
 <style>
@@ -1216,12 +1219,21 @@ function showTab(name) {
   if (name === 'times') updateSortInfo();
   if (name === 'financeiro') {
     initFinanceiro();
-    // Se financeiro está bloqueado, mostrar overlay premium
     if (window._planoAtivo === false) {
+      // Bloqueado explicitamente
       const b = document.getElementById('fin-bloqueio');
       if (b) b.style.display = 'flex';
       else { mostrarTelaPremium(); const b2 = document.getElementById('fin-bloqueio'); if (b2) b2.style.display = 'flex'; }
+    } else if (window._planoAtivo === undefined || window._planoAtivo === null) {
+      // Verificação ainda não concluída (pode acontecer no mobile) — re-executar
+      const u = window._fbAuth && window._fbAuth.currentUser;
+      if (u) {
+        verificarAcessoFinanceiro(u);
+      } else {
+        mostrarTelaPremium({ trialExpirado: false });
+      }
     }
+    // Se _planoAtivo === true, não faz nada — caixa já está liberado
   } else {
     // Esconder overlay ao navegar para outra aba
     const b = document.getElementById('fin-bloqueio');
@@ -3362,14 +3374,19 @@ function _mostrarBannerTrial(diasRestantes) {
   ].join(';');
   banner.innerHTML = `<span>${texto}</span><button onclick="document.getElementById('trial-banner').remove()" style="background:rgba(0,0,0,0.15);border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:0.75rem;color:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>`;
 
-  // Inserir logo após as .tabs para ficar visível em mobile e desktop
-  const tabs = document.querySelector('.tabs');
-  if (tabs && tabs.nextSibling) {
-    tabs.parentNode.insertBefore(banner, tabs.nextSibling);
-  } else if (tabs) {
-    tabs.parentNode.appendChild(banner);
+  // Inserir logo após as .tabs — usar setTimeout para garantir DOM pronto no mobile
+  const _inserirBanner = () => {
+    const tabs = document.querySelector('.tabs');
+    if (tabs) {
+      tabs.insertAdjacentElement('afterend', banner);
+    } else {
+      document.body.prepend(banner);
+    }
+  };
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    _inserirBanner();
   } else {
-    document.body.prepend(banner);
+    window.addEventListener('DOMContentLoaded', _inserirBanner, { once: true });
   }
 }
 
