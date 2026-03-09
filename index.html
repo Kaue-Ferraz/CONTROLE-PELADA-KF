@@ -309,19 +309,8 @@ window._doLogin = async function() {
     if (pass !== pass2) { errEl.textContent = '❌ As senhas não conferem.'; btnEl.textContent='CADASTRAR'; btnEl.disabled=false; return; }
     if (pass.length < 6) { errEl.textContent = '❌ Mínimo 6 caracteres na senha.'; btnEl.textContent='CADASTRAR'; btnEl.disabled=false; return; }
     try {
-      // Sinalizar que estamos em processo de cadastro (evita race condition com onAuthStateChanged)
-      window._cadastrando = true;
-      const cred = await createUserWithEmailAndPassword(auth, email, pass);
-      // Criar documento ANTES que onAuthStateChanged processe o usuário
-      try {
-        const db = window._fbDb;
-        const uRef = window._fbDoc(db, 'users', cred.user.uid);
-        const hoje = new Date();
-        const trialStart = hoje.toISOString().split('T')[0];
-        const validade = new Date(hoje.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        await window._fbSetDoc(uRef, { email: email, liberar: true, validade: validade, trialStart: trialStart });
-      } catch(dbErr) { console.warn('Erro ao criar doc usuário:', dbErr); }
-      window._cadastrando = false;
+      await createUserWithEmailAndPassword(auth, email, pass);
+      // O verificarAcessoFinanceiro no onAuthStateChanged cuida de gravar o trial
     } catch(e) {
       errEl.textContent = window._fbError(e.code);
       btnEl.textContent = 'CADASTRAR'; btnEl.disabled = false;
@@ -3187,16 +3176,17 @@ const WHATSAPP = '22 992826224';
 async function verificarAcessoFinanceiro(user) {
   const uid   = user?.uid   || window._currentUid;
   const email = user?.email || '';
-  if (!uid) { mostrarTelaPremium({ trialExpirado: false }); return; }
 
-  // Checar admin pelo email — direto do objeto user, sem depender de currentUser
-  window._isAdmin = (email === ADMIN_EMAIL);
-  const tabAdmin = document.getElementById('tab-admin');
-  if (tabAdmin) tabAdmin.style.display = window._isAdmin ? '' : 'none';
-
+  // Admin sempre tem acesso
   if (window._isAdmin) {
     window._planoAtivo = true;
     _removerBloqueio();
+    return;
+  }
+
+  if (!uid) {
+    window._planoAtivo = false;
+    mostrarTelaPremium({ trialExpirado: false });
     return;
   }
 
@@ -3205,37 +3195,17 @@ async function verificarAcessoFinanceiro(user) {
     const docRef = window._fbDoc(db, 'users', uid);
     const snap   = await window._fbGetDoc(docRef);
     const hoje   = new Date().toISOString().split('T')[0];
+    const data   = snap.exists() ? snap.data() : {};
 
-    // ── Sem documento: criar com trial iniciando hoje ──────────────────────
-    if (!snap.exists()) {
-      const validadeTrial = new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      await window._fbSetDoc(docRef, { email, liberar: true, validade: validadeTrial, trialStart: hoje }).catch(()=>{});
-      window._planoAtivo = true;  // dia 1 do trial
-      window._trialDiasRestantes = 7;
-      _removerBloqueio();
-      _mostrarBannerTrial(7);
-      return;
-    }
+    // Calcular validade de trial: trialStart + 7 dias
+    const trialStart   = data.trialStart || null;
+    const validadeBase = data.validade   || null;
 
-    const data = snap.data();
-
-    // ── Compatibilidade: migrar campos antigos em background ───────────────
-    const camposFaltando = !('liberar' in data) || !('email' in data);
-    if (camposFaltando) {
-      window._fbSetDoc(docRef, {
-        email: data.email || email,
-        liberar: data.planoAtivo === true || false,
-        validade: data.validade || null
-      }, { merge: true }).catch(()=>{});
-    }
-
-    // ── Migração automática: liberar:false + validade:null + sem trialStart = conceder trial ──
-    const semTrial = !data.trialStart && !data.validade;
-    const bloqueadoSemMotivo = data.liberar === false && semTrial;
-    if (bloqueadoSemMotivo) {
-      const validadeTrial = new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      await window._fbSetDoc(docRef, { email, trialStart: hoje, liberar: true, validade: validadeTrial }, { merge: true }).catch(()=>{});
-      console.log(`[Migração] uid=${uid} sem trial — concedendo 7 dias até ${validadeTrial}`);
+    // Se não tem trialStart em lugar nenhum → é novo/antigo sem trial → gravar agora
+    if (!trialStart && !validadeBase) {
+      const validade7 = new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0];
+      await window._fbSetDoc(docRef, { email, trialStart: hoje, liberar: true, validade: validade7 }, { merge: true });
+      console.log('[Trial] novo trial gravado até', validade7);
       window._planoAtivo = true;
       window._trialDiasRestantes = 7;
       _removerBloqueio();
@@ -3243,82 +3213,44 @@ async function verificarAcessoFinanceiro(user) {
       return;
     }
 
-    // ── Verificar acesso: plano pago OU trial (liberar:true + validade futura) ─
-    const liberar   = data.liberar === true || (camposFaltando && data.planoAtivo === true);
-    const validade  = data.validade || '';
-    const trialStart = data.trialStart || null;
+    // Calcular validade efetiva: usar campo validade se existir, senão calcular do trialStart
+    let validadeEfetiva = validadeBase;
+    if (!validadeEfetiva && trialStart) {
+      validadeEfetiva = new Date(new Date(trialStart+'T00:00:00').getTime() + 7*24*60*60*1000).toISOString().split('T')[0];
+      // Migrar: gravar validade calculada no Firestore
+      window._fbSetDoc(docRef, { validade: validadeEfetiva, liberar: true }, { merge: true }).catch(()=>{});
+    }
 
-    // Verificação automática: validade deve ser >= hoje para liberar acesso
-    const dentroValidade = validade ? validade >= hoje : false;
-
-    if (liberar && dentroValidade) {
-      // Plano ativo (pago ou trial ainda no prazo)
+    // Verificação principal: validade ainda no futuro?
+    if (validadeEfetiva && validadeEfetiva >= hoje) {
+      // Acesso liberado (trial ou plano pago válido)
+      const msInDay = 24*60*60*1000;
+      const diasRestantes = trialStart
+        ? Math.max(0, Math.ceil((new Date(validadeEfetiva+'T00:00:00') - new Date(hoje+'T00:00:00')) / msInDay))
+        : null;
       window._planoAtivo = true;
-
-      // Calcular dias restantes se houver trialStart (para mostrar banner)
-      if (trialStart) {
-        const msInDay = 24 * 60 * 60 * 1000;
-        const inicio  = new Date(trialStart + 'T00:00:00');
-        const agora   = new Date(hoje + 'T00:00:00');
-        const diasUsados = Math.floor((agora - inicio) / msInDay);
-        const diasRestantes = Math.max(0, 7 - diasUsados);
+      if (diasRestantes !== null) {
         window._trialDiasRestantes = diasRestantes;
-        console.log(`[Trial] uid=${uid} trialStart="${trialStart}" diasUsados=${diasUsados} diasRestantes=${diasRestantes} validade=${validade}`);
         _mostrarBannerTrial(diasRestantes);
+        console.log('[Trial] dias restantes:', diasRestantes, 'validade:', validadeEfetiva);
       } else {
-        console.log(`[Acesso] uid=${uid} PLANO PAGO ativo até "${validade}"`);
+        console.log('[Plano] pago ativo até', validadeEfetiva);
       }
-
       _removerBloqueio();
       return;
     }
 
-    if (liberar && !dentroValidade && validade) {
-      // liberar:true mas validade já passou → trial ou plano expirado
-      console.log(`[Acesso] uid=${uid} validade expirada em "${validade}" — bloqueando.`);
-      window._planoAtivo = false;
-      mostrarTelaPremium({ trialExpirado: !!trialStart });
-      return;
-    }
-
-    // ── Sem plano e sem validade: verificar trial pela data de início ─────────
-    if (trialStart) {
-      const msInDay   = 24 * 60 * 60 * 1000;
-      const inicio    = new Date(trialStart + 'T00:00:00');
-      const agora     = new Date(hoje + 'T00:00:00');
-      const diasUsados = Math.floor((agora - inicio) / msInDay);
-      const diasRestantes = 7 - diasUsados;
-
-      console.log(`[Trial-legado] uid=${uid} trialStart="${trialStart}" diasUsados=${diasUsados} diasRestantes=${diasRestantes}`);
-
-      if (diasRestantes > 0) {
-        // Ainda dentro dos 7 dias — migrar para o novo formato
-        const validadeTrial = new Date(inicio.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        window._fbSetDoc(docRef, { liberar: true, validade: validadeTrial }, { merge: true }).catch(()=>{});
-        window._planoAtivo = true;
-        window._trialDiasRestantes = diasRestantes;
-        _removerBloqueio();
-        _mostrarBannerTrial(diasRestantes);
-        return;
-      } else {
-        window._planoAtivo = false;
-        mostrarTelaPremium({ trialExpirado: true });
-        return;
-      }
-    }
-
-    // ── Sem nenhum dado de acesso: usuário antigo → conceder trial de 7 dias ─
-    const validadeTrial = new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    await window._fbSetDoc(docRef, { email, trialStart: hoje, liberar: true, validade: validadeTrial }, { merge: true }).catch(()=>{});
-    window._planoAtivo = true;
-    window._trialDiasRestantes = 7;
-    _removerBloqueio();
-    _mostrarBannerTrial(7);
+    // Validade expirada → bloquear
+    const foiTrial = !!trialStart;
+    console.log('[Acesso] expirado em', validadeEfetiva, 'trial:', foiTrial);
+    window._planoAtivo = false;
+    mostrarTelaPremium({ trialExpirado: foiTrial });
 
   } catch(e) {
     console.error('Erro verificarAcessoFinanceiro:', e);
-    window._planoAtivo = false;
-    mostrarTelaPremium({ trialExpirado: false });
+    // Em caso de erro, liberar para não punir o usuário por falha de rede
+    window._planoAtivo = true;
+    _removerBloqueio();
   }
 }
 
@@ -3703,15 +3635,6 @@ window._onAuthChange = async function(user) {
   const nameBar     = document.getElementById('pelada-name-bar');
 
   if (user) {
-    // Aguardar cadastro terminar de gravar o documento (evita race condition)
-    if (window._cadastrando) {
-      await new Promise(resolve => {
-        const check = setInterval(() => {
-          if (!window._cadastrando) { clearInterval(check); resolve(); }
-        }, 100);
-      });
-    }
-
     _currentUid = user.uid;
     _currentEmail = user.email || '';
     loginScreen.classList.add('hidden');
