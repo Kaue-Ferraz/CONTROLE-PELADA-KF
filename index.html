@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Pelada KF">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Controle de Pelada KF ⚽</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
 <style>
@@ -309,13 +312,8 @@ window._doLogin = async function() {
     if (pass !== pass2) { errEl.textContent = '❌ As senhas não conferem.'; btnEl.textContent='CADASTRAR'; btnEl.disabled=false; return; }
     if (pass.length < 6) { errEl.textContent = '❌ Mínimo 6 caracteres na senha.'; btnEl.textContent='CADASTRAR'; btnEl.disabled=false; return; }
     try {
-      const cred = await createUserWithEmailAndPassword(auth, email, pass);
-      // Criar documento do usuário com plano bloqueado por padrão
-      try {
-        const db = window._fbDb;
-        const uRef = window._fbDoc(db, 'users', cred.user.uid);
-        await window._fbSetDoc(uRef, { email: email, liberar: false, validade: null }, { merge: true });
-      } catch(dbErr) { console.warn('Erro ao criar doc usuário:', dbErr); }
+      await createUserWithEmailAndPassword(auth, email, pass);
+      // O verificarAcessoFinanceiro no onAuthStateChanged cuida de gravar o trial
     } catch(e) {
       errEl.textContent = window._fbError(e.code);
       btnEl.textContent = 'CADASTRAR'; btnEl.disabled = false;
@@ -1221,12 +1219,21 @@ function showTab(name) {
   if (name === 'times') updateSortInfo();
   if (name === 'financeiro') {
     initFinanceiro();
-    // Se financeiro está bloqueado, mostrar overlay premium
     if (window._planoAtivo === false) {
+      // Bloqueado explicitamente
       const b = document.getElementById('fin-bloqueio');
       if (b) b.style.display = 'flex';
       else { mostrarTelaPremium(); const b2 = document.getElementById('fin-bloqueio'); if (b2) b2.style.display = 'flex'; }
+    } else if (window._planoAtivo === undefined || window._planoAtivo === null) {
+      // Verificação ainda não concluída (pode acontecer no mobile) — re-executar
+      const u = window._fbAuth && window._fbAuth.currentUser;
+      if (u) {
+        verificarAcessoFinanceiro(u);
+      } else {
+        mostrarTelaPremium({ trialExpirado: false });
+      }
     }
+    // Se _planoAtivo === true, não faz nada — caixa já está liberado
   } else {
     // Esconder overlay ao navegar para outra aba
     const b = document.getElementById('fin-bloqueio');
@@ -3181,16 +3188,17 @@ const WHATSAPP = '22 992826224';
 async function verificarAcessoFinanceiro(user) {
   const uid   = user?.uid   || window._currentUid;
   const email = user?.email || '';
-  if (!uid) { mostrarTelaPremium(); return; }
 
-  // Checar admin pelo email — direto do objeto user, sem depender de currentUser
-  window._isAdmin = (email === ADMIN_EMAIL);
-  const tabAdmin = document.getElementById('tab-admin');
-  if (tabAdmin) tabAdmin.style.display = window._isAdmin ? '' : 'none';
-
+  // Admin sempre tem acesso
   if (window._isAdmin) {
     window._planoAtivo = true;
     _removerBloqueio();
+    return;
+  }
+
+  if (!uid) {
+    window._planoAtivo = false;
+    mostrarTelaPremium({ trialExpirado: false });
     return;
   }
 
@@ -3198,51 +3206,65 @@ async function verificarAcessoFinanceiro(user) {
     const db     = window._fbDb;
     const docRef = window._fbDoc(db, 'users', uid);
     const snap   = await window._fbGetDoc(docRef);
+    const hoje   = new Date().toISOString().split('T')[0];
+    const data   = snap.exists() ? snap.data() : {};
 
-    if (!snap.exists()) {
-      // Sem documento = bloquear, criar em background
-      window._planoAtivo = false;
-      window._fbSetDoc(docRef, { email, liberar: false, validade: null }).catch(()=>{});
-      mostrarTelaPremium();
+    // Calcular validade de trial: trialStart + 7 dias
+    // Extrair campos — tratar null, undefined e string vazia como ausente
+    const trialStart   = data.trialStart && typeof data.trialStart === 'string' ? data.trialStart : null;
+    const validadeBase = data.validade   && typeof data.validade   === 'string' ? data.validade   : null;
+
+    // Se não tem trialStart nem validade válida → novo/antigo sem trial → gravar agora
+    if (!trialStart && !validadeBase) {
+      const validade7 = new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0];
+      await window._fbSetDoc(docRef, { email, trialStart: hoje, liberar: true, validade: validade7 }, { merge: true });
+      window._planoAtivo = true;
+      window._trialDiasRestantes = 7;
+      _removerBloqueio();
+      _mostrarBannerTrial(7);
       return;
     }
 
-    const data = snap.data();
-
-    // Atualizar campos em background sem bloquear o acesso
-    const camposFaltando = !('liberar' in data) || !('email' in data);
-    if (camposFaltando) {
-      window._fbSetDoc(docRef, {
-        email: data.email || email,
-        liberar: data.planoAtivo === true || false,
-        validade: data.validade || null
-      }, { merge: true }).catch(()=>{});
+    // Calcular validade efetiva: usar campo validade se existir, senão calcular do trialStart
+    let validadeEfetiva = validadeBase;
+    if (!validadeEfetiva && trialStart) {
+      validadeEfetiva = new Date(new Date(trialStart+'T00:00:00').getTime() + 7*24*60*60*1000).toISOString().split('T')[0];
+      // Migrar: gravar validade calculada no Firestore
+      window._fbSetDoc(docRef, { validade: validadeEfetiva, liberar: true }, { merge: true }).catch(()=>{});
     }
 
-    const liberar = data.liberar === true || (camposFaltando && data.planoAtivo === true);
-    const validade = data.validade || '';
-    const hoje = new Date().toISOString().split('T')[0];
-    // liberar:true sem validade = acesso permanente
-    const dentroValidade = !validade || validade >= hoje;
-
-    window._planoAtivo = liberar && dentroValidade;
-
-    console.log(`[Acesso] uid=${uid} liberar=${liberar} validade="${validade}" planoAtivo=${window._planoAtivo}`);
-
-    if (window._planoAtivo) {
+    // Verificação principal: validade ainda no futuro?
+    if (validadeEfetiva && validadeEfetiva >= hoje) {
+      // Acesso liberado (trial ou plano pago válido)
+      const msInDay = 24*60*60*1000;
+      const diasRestantes = trialStart
+        ? Math.max(0, Math.ceil((new Date(validadeEfetiva+'T00:00:00') - new Date(hoje+'T00:00:00')) / msInDay))
+        : null;
+      window._planoAtivo = true;
+      if (diasRestantes !== null) {
+        window._trialDiasRestantes = diasRestantes;
+        _mostrarBannerTrial(diasRestantes);
+        } else {
+        }
       _removerBloqueio();
-    } else {
-      mostrarTelaPremium();
+      return;
     }
+
+    // Validade expirada → bloquear
+    const foiTrial = !!trialStart;
+    window._planoAtivo = false;
+    mostrarTelaPremium({ trialExpirado: foiTrial });
+
   } catch(e) {
     console.error('Erro verificarAcessoFinanceiro:', e);
-    window._planoAtivo = false;
-    mostrarTelaPremium();
+    // Em caso de erro, liberar para não punir o usuário por falha de rede
+    window._planoAtivo = true;
+    _removerBloqueio();
   }
 }
 
-// ─── mostrarTelaPremium() ────────────────────────────────────────────────────
-function mostrarTelaPremium() {
+// ─── mostrarTelaPremium({ trialExpirado }) ───────────────────────────────────
+function mostrarTelaPremium({ trialExpirado = false } = {}) {
   _removerBloqueio();
 
   const tabFin = document.querySelector('.tab[onclick*="financeiro"]');
@@ -3259,17 +3281,31 @@ function mostrarTelaPremium() {
     }
   });
 
+  // Bloco de cabeçalho diferente se trial expirou
+  const cabecalhoHtml = trialExpirado ? `
+    <div style="font-size:3rem;margin-bottom:12px">⏰</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:#111;letter-spacing:2px;margin-bottom:8px">Período Gratuito Encerrado</div>
+    <div style="background:#fff3cd;border:2px solid #f4c430;border-radius:12px;padding:12px 16px;margin-bottom:16px">
+      <div style="font-size:0.85rem;color:#7a5c00;font-weight:700;line-height:1.5">
+        ⚽ Seus 7 dias de teste gratuito chegaram ao fim.<br>
+        Assine o plano para continuar usando o Caixa!
+      </div>
+    </div>
+  ` : `
+    <div style="font-size:3rem;margin-bottom:12px">🔒</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:#111;letter-spacing:2px;margin-bottom:8px">Controle Financeiro Premium</div>
+    <div style="font-size:0.88rem;color:#555;margin-bottom:20px;line-height:1.6">
+      O controle financeiro da pelada faz parte da versão premium do aplicativo.
+    </div>
+  `;
+
   div.innerHTML = `
     <div style="position:relative;background:#fff;border-radius:20px;padding:32px 24px;max-width:340px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.5)">
       <!-- Botão fechar -->
       <button onclick="document.getElementById('fin-bloqueio').style.display='none'; showTab('jogadores')"
         style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:1.4rem;color:#aaa;cursor:pointer;line-height:1;padding:4px 8px;border-radius:8px"
         title="Fechar">✕</button>
-      <div style="font-size:3rem;margin-bottom:12px">🔒</div>
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:#111;letter-spacing:2px;margin-bottom:8px">Controle Financeiro Premium</div>
-      <div style="font-size:0.88rem;color:#555;margin-bottom:20px;line-height:1.6">
-        O controle financeiro da pelada faz parte da versão premium do aplicativo.
-      </div>
+      ${cabecalhoHtml}
       <div style="background:#f0faf4;border:2px solid #1db954;border-radius:14px;padding:16px;margin-bottom:20px">
         <div style="font-size:0.7rem;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Valor do plano</div>
         <div style="font-size:1.8rem;font-weight:900;color:#111;line-height:1">R$ 14,90</div>
@@ -3302,6 +3338,95 @@ function mostrarTelaPremium() {
       document.getElementById('fin-bloqueio').style.display = 'flex';
     };
   }
+}
+
+// ─── _mostrarBannerTrial(diasRestantes) ──────────────────────────────────────
+function _mostrarBannerTrial(diasRestantes) {
+  const existing = document.getElementById('trial-banner');
+  if (existing) existing.remove();
+
+  const cor   = diasRestantes <= 1 ? '#ef4444' : diasRestantes <= 3 ? '#f4c430' : '#1db954';
+  const texto = diasRestantes >= 7
+    ? '🎉 Teste grátis ativado! Você tem 7 dias para usar o Caixa.'
+    : diasRestantes === 1
+      ? '⚠️ Último dia do teste gratuito! Assine para não perder o acesso.'
+      : `⏳ Teste gratuito: ${diasRestantes} dias restantes.`;
+
+  const banner = document.createElement('div');
+  banner.id = 'trial-banner';
+  banner.style.cssText = [
+    'background:' + cor,
+    'color:#000',
+    'padding:8px 16px',
+    'text-align:center',
+    'font-size:0.78rem',
+    'font-weight:700',
+    'border-radius:8px',
+    'margin-top:8px',
+    'display:flex',
+    'align-items:center',
+    'justify-content:center',
+    'gap:8px',
+    'flex-wrap:wrap'
+  ].join(';');
+  banner.innerHTML = `<span>${texto}</span><button onclick="(function(){ document.getElementById('trial-banner').remove(); var h=document.querySelector('.header'); var t=document.querySelector('.tabs'); if(h&&t) t.style.top=h.offsetHeight+'px'; })()" style="background:rgba(0,0,0,0.15);border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:0.75rem;color:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>`;
+
+  // Inserir o banner dentro do header (que já é sticky) para garantir visibilidade no mobile
+  const header = document.querySelector('.header');
+  if (header) {
+    header.appendChild(banner);
+    // Ajustar o top das tabs para compensar a altura adicional do header
+    requestAnimationFrame(() => {
+      const tabsEl = document.querySelector('.tabs');
+      if (tabsEl) tabsEl.style.top = header.offsetHeight + 'px';
+    });
+  } else {
+    const tabs = document.querySelector('.tabs');
+    if (tabs) tabs.insertAdjacentElement('afterend', banner);
+    else document.body.prepend(banner);
+  }
+
+  // Modal de aviso — aparece sempre no primeiro login do dia ou quando tem 7 dias (novo trial)
+  _mostrarModalTrial(diasRestantes);
+}
+
+// ─── _mostrarModalTrial(diasRestantes) ───────────────────────────────────────
+function _mostrarModalTrial(diasRestantes) {
+  // Só mostra 1x por sessão para não incomodar
+  if (window._trialModalMostrado) return;
+  window._trialModalMostrado = true;
+
+  const cor       = diasRestantes <= 1 ? '#ef4444' : diasRestantes <= 3 ? '#f4c430' : '#1db954';
+  const emoji     = diasRestantes >= 7 ? '🎉' : diasRestantes <= 1 ? '⚠️' : '⏳';
+  const titulo    = diasRestantes >= 7 ? 'Teste grátis ativado!' : diasRestantes <= 1 ? 'Último dia!' : 'Trial em andamento';
+  const subtexto  = diasRestantes >= 7
+    ? 'Você tem <strong>7 dias gratuitos</strong> para usar o módulo Caixa completo.'
+    : diasRestantes === 1
+      ? 'Hoje é o <strong>último dia</strong> do seu teste. Assine para continuar!'
+      : `Seu teste gratuito termina em <strong>${diasRestantes} dias</strong>.`;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'trial-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+  overlay.innerHTML = `
+    <div style="background:#1a1a1a;border:2px solid ${cor};border-radius:20px;padding:28px 22px;max-width:320px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.6);">
+      <div style="font-size:3rem;margin-bottom:10px">${emoji}</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:2px;color:${cor};margin-bottom:10px">${titulo}</div>
+      <div style="font-size:0.9rem;color:#ccc;line-height:1.6;margin-bottom:20px">${subtexto}</div>
+      <div style="font-size:0.8rem;color:#888;margin-bottom:20px">
+        ⚽ Acesse a aba <strong style="color:${cor}">CAIXA</strong> para controlar mensalidades, despesas e mais.
+      </div>
+      <button onclick="document.getElementById('trial-modal').remove()"
+        style="width:100%;padding:13px;border-radius:10px;border:none;background:${cor};color:#000;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;cursor:pointer;">
+        ENTENDIDO ✓
+      </button>
+    </div>
+  `;
+
+  // Fechar ao clicar fora
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
 }
 
 function _removerBloqueio() {
@@ -3596,9 +3721,7 @@ window._onAuthChange = async function(user) {
       await verificarAcessoFinanceiro(user);
       await loadFinData();
       await loadPeladaName();
-      // Garantir documento usuarios/{uid} sempre atualizado com email
-      const uRef = window._fbDoc(window._fbDb, 'users', user.uid);
-      await window._fbSetDoc(uRef, { email: user.email || '' }, { merge: true });
+
       // Se for admin, migrar usuários antigos
       if (window._isAdmin) {
         migrarUsuariosAntigos();
