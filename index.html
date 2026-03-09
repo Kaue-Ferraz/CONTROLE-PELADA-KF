@@ -3234,7 +3234,7 @@ async function verificarAcessoFinanceiro(user) {
     const bloqueadoSemMotivo = data.liberar === false && semTrial;
     if (bloqueadoSemMotivo) {
       const validadeTrial = new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      await window._fbSetDoc(docRef, { trialStart: hoje, liberar: true, validade: validadeTrial }, { merge: true }).catch(()=>{});
+      await window._fbSetDoc(docRef, { email, trialStart: hoje, liberar: true, validade: validadeTrial }, { merge: true }).catch(()=>{});
       console.log(`[Migração] uid=${uid} sem trial — concedendo 7 dias até ${validadeTrial}`);
       window._planoAtivo = true;
       window._trialDiasRestantes = 7;
@@ -3309,7 +3309,7 @@ async function verificarAcessoFinanceiro(user) {
 
     // ── Sem nenhum dado de acesso: usuário antigo → conceder trial de 7 dias ─
     const validadeTrial = new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    await window._fbSetDoc(docRef, { trialStart: hoje, liberar: true, validade: validadeTrial }, { merge: true }).catch(()=>{});
+    await window._fbSetDoc(docRef, { email, trialStart: hoje, liberar: true, validade: validadeTrial }, { merge: true }).catch(()=>{});
     window._planoAtivo = true;
     window._trialDiasRestantes = 7;
     _removerBloqueio();
@@ -3730,27 +3730,6 @@ window._onAuthChange = async function(user) {
       await verificarAcessoFinanceiro(user);
       await loadFinData();
       await loadPeladaName();
-      // Garantir documento usuarios/{uid} sempre atualizado — nunca sobrescrever liberar/validade já definidos
-      const uRef = window._fbDoc(window._fbDb, 'users', user.uid);
-      const uSnap = await window._fbGetDoc(uRef);
-      const uData = uSnap.exists() ? uSnap.data() : {};
-      const hoje7 = new Date().toISOString().split('T')[0];
-      const patchData = { email: user.email || '' };
-      // Só definir trialStart se ainda não existir
-      if (!uData.trialStart) {
-        patchData.trialStart = hoje7;
-      }
-      // Só definir liberar/validade se ainda não existirem ou se estiver bloqueado sem motivo
-      const semValidade = !uData.validade && !uData.trialStart;
-      if (!('liberar' in uData) || (uData.liberar === false && semValidade)) {
-        const validadeTrial = new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        patchData.liberar = true;
-        patchData.validade = validadeTrial;
-        if (!uData.trialStart) patchData.trialStart = hoje7;
-      }
-      await window._fbSetDoc(uRef, patchData, { merge: true });
-
-
 
       // Se for admin, migrar usuários antigos
       if (window._isAdmin) {
