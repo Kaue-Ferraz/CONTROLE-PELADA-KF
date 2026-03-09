@@ -3354,7 +3354,6 @@ function _mostrarBannerTrial(diasRestantes) {
 
   const banner = document.createElement('div');
   banner.id = 'trial-banner';
-  // position:sticky abaixo das tabs fixas para aparecer no mobile
   banner.style.cssText = [
     'background:' + cor,
     'color:#000',
@@ -3362,8 +3361,6 @@ function _mostrarBannerTrial(diasRestantes) {
     'text-align:center',
     'font-size:0.8rem',
     'font-weight:700',
-    'position:sticky',
-    'top:122px',       // abaixo do header(~80px) + tabs(~42px)
     'z-index:97',
     'box-shadow:0 2px 6px rgba(0,0,0,0.3)',
     'display:flex',
@@ -3374,20 +3371,51 @@ function _mostrarBannerTrial(diasRestantes) {
   ].join(';');
   banner.innerHTML = `<span>${texto}</span><button onclick="document.getElementById('trial-banner').remove()" style="background:rgba(0,0,0,0.15);border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:0.75rem;color:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>`;
 
-  // Inserir logo após as .tabs — usar setTimeout para garantir DOM pronto no mobile
-  const _inserirBanner = () => {
-    const tabs = document.querySelector('.tabs');
-    if (tabs) {
-      tabs.insertAdjacentElement('afterend', banner);
-    } else {
-      document.body.prepend(banner);
-    }
-  };
-  if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    _inserirBanner();
-  } else {
-    window.addEventListener('DOMContentLoaded', _inserirBanner, { once: true });
-  }
+  const tabs = document.querySelector('.tabs');
+  if (tabs) tabs.insertAdjacentElement('afterend', banner);
+  else document.body.prepend(banner);
+
+  // Modal de aviso — aparece sempre no primeiro login do dia ou quando tem 7 dias (novo trial)
+  _mostrarModalTrial(diasRestantes);
+}
+
+// ─── _mostrarModalTrial(diasRestantes) ───────────────────────────────────────
+function _mostrarModalTrial(diasRestantes) {
+  // Só mostra 1x por sessão para não incomodar
+  if (window._trialModalMostrado) return;
+  window._trialModalMostrado = true;
+
+  const cor       = diasRestantes <= 1 ? '#ef4444' : diasRestantes <= 3 ? '#f4c430' : '#1db954';
+  const emoji     = diasRestantes >= 7 ? '🎉' : diasRestantes <= 1 ? '⚠️' : '⏳';
+  const titulo    = diasRestantes >= 7 ? 'Teste grátis ativado!' : diasRestantes <= 1 ? 'Último dia!' : 'Trial em andamento';
+  const subtexto  = diasRestantes >= 7
+    ? 'Você tem <strong>7 dias gratuitos</strong> para usar o módulo Caixa completo.'
+    : diasRestantes === 1
+      ? 'Hoje é o <strong>último dia</strong> do seu teste. Assine para continuar!'
+      : `Seu teste gratuito termina em <strong>${diasRestantes} dias</strong>.`;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'trial-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+  overlay.innerHTML = `
+    <div style="background:#1a1a1a;border:2px solid ${cor};border-radius:20px;padding:28px 22px;max-width:320px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.6);">
+      <div style="font-size:3rem;margin-bottom:10px">${emoji}</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:2px;color:${cor};margin-bottom:10px">${titulo}</div>
+      <div style="font-size:0.9rem;color:#ccc;line-height:1.6;margin-bottom:20px">${subtexto}</div>
+      <div style="font-size:0.8rem;color:#888;margin-bottom:20px">
+        ⚽ Acesse a aba <strong style="color:${cor}">CAIXA</strong> para controlar mensalidades, despesas e mais.
+      </div>
+      <button onclick="document.getElementById('trial-modal').remove()"
+        style="width:100%;padding:13px;border-radius:10px;border:none;background:${cor};color:#000;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;cursor:pointer;">
+        ENTENDIDO ✓
+      </button>
+    </div>
+  `;
+
+  // Fechar ao clicar fora
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
 }
 
 function _removerBloqueio() {
