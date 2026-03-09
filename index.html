@@ -1025,6 +1025,34 @@ onAuthStateChanged(auth, user => {
         <input type="date" id="admin-validade">
       </div>
     </div>
+
+    <!-- Atalhos rápidos de validade -->
+    <div style="margin-bottom:12px">
+      <div class="section-label">⚡ Definir validade rapidamente</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-top:4px">
+        <button onclick="adminSetValidade(1)"
+          style="padding:9px 4px;border-radius:8px;border:1px solid #1db954;background:#0d2e14;color:#1db954;font-weight:900;font-size:0.72rem;cursor:pointer;transition:all .15s"
+          onmouseover="this.style.background='#1db954';this.style.color='#000'" onmouseout="this.style.background='#0d2e14';this.style.color='#1db954'">
+          🗓 1 mês
+        </button>
+        <button onclick="adminSetValidade(3)"
+          style="padding:9px 4px;border-radius:8px;border:1px solid #1a8a3a;background:#0a2218;color:#4dd87a;font-weight:900;font-size:0.72rem;cursor:pointer;transition:all .15s"
+          onmouseover="this.style.background='#1a8a3a';this.style.color='#fff'" onmouseout="this.style.background='#0a2218';this.style.color='#4dd87a'">
+          🗓 3 meses
+        </button>
+        <button onclick="adminSetValidade(6)"
+          style="padding:9px 4px;border-radius:8px;border:1px solid #3b82f6;background:#0d1f3c;color:#60a5fa;font-weight:900;font-size:0.72rem;cursor:pointer;transition:all .15s"
+          onmouseover="this.style.background='#3b82f6';this.style.color='#fff'" onmouseout="this.style.background='#0d1f3c';this.style.color='#60a5fa'">
+          🗓 6 meses
+        </button>
+        <button onclick="adminSetValidade(12)"
+          style="padding:9px 4px;border-radius:8px;border:1px solid #f4c430;background:#2a1e00;color:#f4c430;font-weight:900;font-size:0.72rem;cursor:pointer;transition:all .15s"
+          onmouseover="this.style.background='#f4c430';this.style.color='#000'" onmouseout="this.style.background='#2a1e00';this.style.color='#f4c430'">
+          🏆 1 ano
+        </button>
+      </div>
+    </div>
+
     <button class="btn btn-green" onclick="adminSalvarPlano()">💾 SALVAR PLANO</button>
     <div id="admin-msg" style="margin-top:10px;font-size:0.8rem;text-align:center;min-height:20px"></div>
   </div>
@@ -3443,7 +3471,7 @@ function _removerBloqueio() {
 // ─── copiarPix() ─────────────────────────────────────────────────────────────
 function copiarPix() {
   navigator.clipboard.writeText(PIX_CHAVE).then(() => {
-    showToast('✅ Pix copiado!');
+    toast('✅ Pix copiado!');
   }).catch(() => {
     // Fallback para browsers sem clipboard API
     const el = document.createElement('textarea');
@@ -3452,7 +3480,7 @@ function copiarPix() {
     el.select();
     document.execCommand('copy');
     document.body.removeChild(el);
-    showToast('✅ Pix copiado!');
+    toast('✅ Pix copiado!');
   });
 }
 
@@ -3464,9 +3492,9 @@ async function liberarUsuario() {
   const mesesStr = prompt('📅 Quantos meses de acesso?', '1');
   if (!mesesStr) return;
   const meses = parseInt(mesesStr);
-  if (isNaN(meses) || meses < 1) { showToast('❌ Número de meses inválido.'); return; }
+  if (isNaN(meses) || meses < 1) { toast('❌ Número de meses inválido.'); return; }
 
-  showToast('⏳ Buscando usuário...');
+  toast('⏳ Buscando usuário...');
 
   try {
     const db = window._fbDb;
@@ -3478,7 +3506,7 @@ async function liberarUsuario() {
     });
 
     if (!uidAlvo) {
-      showToast('❌ Usuário não encontrado com esse e-mail.');
+      toast('❌ Usuário não encontrado com esse e-mail.');
       return;
     }
 
@@ -3490,7 +3518,7 @@ async function liberarUsuario() {
     const docRef = window._fbDoc(db, 'users', uidAlvo);
     await window._fbSetDoc(docRef, { liberar: true, validade: validade }, { merge: true });
 
-    showToast(`✅ Acesso liberado até ${validade}!`);
+    toast(`✅ Acesso liberado até ${validade}!`);
     adminCarregarUsuarios();
     // Limpar campos do formulário
     document.getElementById('admin-uid-input').value = '';
@@ -3498,11 +3526,25 @@ async function liberarUsuario() {
     document.getElementById('admin-msg').textContent = '';
   } catch(e) {
     console.error(e);
-    showToast('❌ Erro: ' + e.message);
+    toast('❌ Erro: ' + e.message);
   }
 }
 
-// ─── ADMIN: SALVAR PLANO ────────────────────────────────────────────────────
+// ─── ADMIN: DEFINIR VALIDADE RÁPIDA ─────────────────────────────────────────
+function adminSetValidade(meses) {
+  const base = new Date();
+  base.setMonth(base.getMonth() + meses);
+  const validade = base.toISOString().split('T')[0];
+  document.getElementById('admin-validade').value = validade;
+  document.getElementById('admin-plano-ativo').value = 'true';
+  const msgEl = document.getElementById('admin-msg');
+  if (msgEl) {
+    msgEl.style.color = 'var(--gold)';
+    msgEl.textContent = `📅 Validade definida para ${meses === 12 ? '1 ano' : meses + (meses === 1 ? ' mês' : ' meses')} (${validade}). Clique em Salvar Plano.`;
+  }
+}
+
+// ─── ADMIN: SALVAR PLANO ─────────────────────────────────────────────────────
 async function adminSalvarPlano() {
   const uid      = document.getElementById('admin-uid-input').value.trim();
   const ativo    = document.getElementById('admin-plano-ativo').value === 'true';
@@ -3529,7 +3571,7 @@ async function adminSalvarPlano() {
     await window._fbSetDoc(docRef, { liberar: ativo, validade: validade }, { merge: true });
     msgEl.style.color = 'var(--green)';
     msgEl.textContent = `✅ Plano ${ativo ? 'ATIVADO' : 'BLOQUEADO'} até ${validade} com sucesso!`;
-    showToast('✅ Plano salvo!');
+    toast('✅ Plano salvo!');
     // Recarregar lista e limpar formulário
     adminCarregarUsuarios();
     setTimeout(() => {
@@ -3692,10 +3734,10 @@ async function adminLiberarRapido(uid, btn) {
   try {
     const db = window._fbDb;
     await window._fbSetDoc(window._fbDoc(db, 'users', uid), { liberar: true, validade }, { merge: true });
-    showToast(`✅ ${email} liberado até ${validade}`);
+    toast(`✅ ${email} liberado até ${validade}`);
     adminCarregarUsuarios();
   } catch(e) {
-    showToast('❌ Erro: ' + e.message);
+    toast('❌ Erro: ' + e.message);
   }
 }
 
@@ -3705,10 +3747,10 @@ async function adminBloquear(uid, btn) {
   try {
     const db = window._fbDb;
     await window._fbSetDoc(window._fbDoc(db, 'users', uid), { liberar: false, validade: null }, { merge: true });
-    showToast(`🔒 ${email} bloqueado.`);
+    toast(`🔒 ${email} bloqueado.`);
     adminCarregarUsuarios();
   } catch(e) {
-    showToast('❌ Erro: ' + e.message);
+    toast('❌ Erro: ' + e.message);
   }
 }
 
